@@ -4,8 +4,9 @@
   "description": "A macOS-only computer-use MCP server for OpenCode",
   "type": "module",
   "private": true,
+  "packageManager": "bun@1.3.14",
   "engines": {
-    "node": ">=22"
+    "bun": ">=1.3.14"
   },
   "bin": {
     "occu": "dist/src/policy-cli.js",
@@ -13,12 +14,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "npm run build && npm test",
+    "check": "bun run build && bun run test",
     "permissions": "peekaboo permissions",
-    "policy": "node dist/src/policy-cli.js",
-    "start": "node dist/src/cli.js",
+    "policy": "bun dist/src/policy-cli.js",
+    "start": "bun dist/src/cli.js",
     "test": "vitest run --dir test",
-    "test:backend": "npm run build && node scripts/backend-smoke.mjs"
+    "test:backend": "bun run build && bun scripts/backend-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

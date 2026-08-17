@@ -7,7 +7,7 @@ the signed Peekaboo 4.2.0 engine.
 ## Requirements
 
 - macOS 14 or later
-- Node.js 22 or later
+- Bun 1.3.14 or later
 - OpenCode 1.17.18 or later
 
 The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
@@ -17,25 +17,25 @@ The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
 Install, build, and inspect the native permission state:
 
 ```bash
-npm install
-npm run build
-npm run permissions
+bun install
+bun run build
+bun run permissions
 ```
 
 Request missing permissions one at a time. macOS opens the corresponding System
 Settings flow; the user must approve it:
 
 ```bash
-npm run permissions -- request screen-recording
-npm run permissions -- request accessibility
+bun run permissions -- request screen-recording
+bun run permissions -- request accessibility
 ```
 
 Allow only applications that OpenCode may mutate:
 
 ```bash
-npm run policy -- allow TextEdit
-npm run policy -- allow Calculator
-npm run policy -- status
+bun run policy -- allow TextEdit
+bun run policy -- allow Calculator
+bun run policy -- status
 ```
 
 Then start OpenCode from this directory:
@@ -54,16 +54,16 @@ approval and must also pass Occu's local app policy.
 Stop mutations immediately, including from already-running OpenCode sessions:
 
 ```bash
-npm run policy -- stop
+bun run policy -- stop
 ```
 
 Observation remains available while stopped. Resume and manage the allowlist
 with:
 
 ```bash
-npm run policy -- resume
-npm run policy -- deny TextEdit
-npm run policy -- list
+bun run policy -- resume
+bun run policy -- deny TextEdit
+bun run policy -- list
 ```
 
 Policy is stored in `~/.config/occu/policy.json`. Set `OCCU_POLICY_DIR` to use a
@@ -92,8 +92,8 @@ before it. The observation is invalidated after one mutation attempt.
 ## Development
 
 ```bash
-npm run check
-npm audit
+bun run check
+bun audit
 ```
 
 `OCCU_BACKEND_COMMAND` and JSON-array `OCCU_BACKEND_ARGS` can point the facade at

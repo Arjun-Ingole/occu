@@ -43,7 +43,7 @@ Occu uses two controls that OpenCode can enforce today:
 OpenCode
   | stdio MCP: computer_use_*
   v
-Occu (Node.js facade)
+Occu (Bun facade)
   | policy.json + STOPPED
   | stdio MCP: native Peekaboo tools
   v
@@ -92,4 +92,3 @@ without changing OpenCode's MCP contract.
 - [Model Context Protocol specification](https://modelcontextprotocol.io/specification/)
 - [Peekaboo repository](https://github.com/openclaw/Peekaboo)
 - [OpenAI computer-use guide](https://platform.openai.com/docs/guides/tools-computer-use)
-

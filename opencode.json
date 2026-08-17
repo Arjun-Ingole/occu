@@ -3,7 +3,7 @@
   "mcp": {
     "computer_use": {
       "type": "local",
-      "command": ["node", "./dist/src/cli.js"],
+      "command": ["bun", "./dist/src/cli.js"],
       "cwd": ".",
       "enabled": true,
       "timeout": 30000
@@ -16,4 +16,3 @@
     "computer_use_permission_status": "allow"
   }
 }
-
