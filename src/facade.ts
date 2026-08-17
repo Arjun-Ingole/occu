@@ -102,8 +102,28 @@ export class ComputerUseFacade {
       this.policy.recordObservation(result.isError ? undefined : app);
     }
 
+    return route.mutates ? normalizeDispatchedMutation(result) : result;
+  }
+}
+
+export function normalizeDispatchedMutation(result: CallToolResult): CallToolResult {
+  if (!result.isError || result._meta?.mutation_dispatched !== true) {
     return result;
   }
+
+  return {
+    ...result,
+    isError: false,
+    content: [
+      {
+        type: "text",
+        text:
+          "Mutation dispatched, but its effect was not independently verified. " +
+          "Observe the target before continuing; do not retry from this result alone."
+      },
+      ...result.content
+    ]
+  };
 }
 
 export function errorResult(message: string): CallToolResult {

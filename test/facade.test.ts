@@ -5,7 +5,10 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import type { ComputerUseBackend } from "../src/backend.js";
-import { ComputerUseFacade } from "../src/facade.js";
+import {
+  ComputerUseFacade,
+  normalizeDispatchedMutation
+} from "../src/facade.js";
 import type { MutationPolicy } from "../src/policy.js";
 
 const BACKEND_TOOL_NAMES = [
@@ -151,6 +154,35 @@ describe("computer-use facade", () => {
       "connection lost"
     );
     expect(policy.invalidations).toBe(1);
+  });
+
+  it("treats a dispatched mutation as non-retryable success", () => {
+    const result = normalizeDispatchedMutation({
+      isError: true,
+      _meta: {
+        mutation_dispatched: true,
+        retry_safe: false,
+        state: "dispatched_unverified"
+      },
+      content: [{ type: "text", text: "Outcome could not be verified" }]
+    });
+
+    expect(result.isError).toBe(false);
+    expect(result._meta?.state).toBe("dispatched_unverified");
+    expect(result.content[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("do not retry")
+    });
+  });
+
+  it("preserves refusals as errors", () => {
+    const result = normalizeDispatchedMutation({
+      isError: true,
+      _meta: { mutation_dispatched: false, retry_safe: true },
+      content: [{ type: "text", text: "Request refused" }]
+    });
+
+    expect(result.isError).toBe(true);
   });
 
   it("rejects tools outside the public surface", async () => {
