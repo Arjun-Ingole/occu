@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ComputerUseBackend } from "../src/backend.js";
 import { ComputerUseFacade } from "../src/facade.js";
+import type { MutationPolicy } from "../src/policy.js";
 
 const BACKEND_TOOL_NAMES = [
   "app",
@@ -52,6 +53,24 @@ class RecordingBackend implements ComputerUseBackend {
   async close(): Promise<void> {}
 }
 
+class RecordingPolicy implements MutationPolicy {
+  observations: Array<string | undefined> = [];
+  authorizations: Array<string | undefined> = [];
+  invalidations = 0;
+
+  recordObservation(app: string | undefined): void {
+    this.observations.push(app);
+  }
+
+  async authorizeMutation(explicitApp?: string): Promise<void> {
+    this.authorizations.push(explicitApp);
+  }
+
+  invalidateObservation(): void {
+    this.invalidations += 1;
+  }
+}
+
 describe("computer-use facade", () => {
   it("renames and narrows the backend tool list", async () => {
     const facade = new ComputerUseFacade(new RecordingBackend());
@@ -91,17 +110,47 @@ describe("computer-use facade", () => {
 
   it("passes arguments and multimodal results through unchanged", async () => {
     const backend = new RecordingBackend();
-    const facade = new ComputerUseFacade(backend);
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
 
-    const result = await facade.callTool("get_app_state", { app: "TextEdit" });
+    const result = await facade.callTool("get_app_state", {
+      app_target: "TextEdit"
+    });
 
     expect(backend.calls).toEqual([
-      { name: "see", arguments_: { app: "TextEdit" } }
+      { name: "see", arguments_: { app_target: "TextEdit" } }
     ]);
+    expect(policy.observations).toEqual([undefined, "TextEdit"]);
     expect(result.content[1]).toMatchObject({
       type: "image",
       mimeType: "image/png"
     });
+  });
+
+  it("checks and invalidates policy context around mutations", async () => {
+    const backend = new RecordingBackend();
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
+
+    await facade.callTool("press_key", { app: "TextEdit", keys: ["RETURN"] });
+
+    expect(policy.authorizations).toEqual(["TextEdit"]);
+    expect(policy.invalidations).toBe(1);
+    expect(backend.calls[0]?.name).toBe("press");
+  });
+
+  it("invalidates policy context when mutation delivery is indeterminate", async () => {
+    const backend = new RecordingBackend();
+    backend.callTool = async () => {
+      throw new Error("connection lost");
+    };
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
+
+    await expect(facade.callTool("click", { on: "B1" })).rejects.toThrow(
+      "connection lost"
+    );
+    expect(policy.invalidations).toBe(1);
   });
 
   it("rejects tools outside the public surface", async () => {

@@ -10,6 +10,7 @@ import {
   isPublicToolName,
   type PublicToolName
 } from "./contracts.js";
+import { LocalMutationPolicy, type MutationPolicy } from "./policy.js";
 
 const EMPTY_OBJECT_SCHEMA: Tool["inputSchema"] = {
   type: "object",
@@ -30,7 +31,10 @@ const TOOL_DESCRIPTIONS: Partial<Record<PublicToolName, string>> = {
 };
 
 export class ComputerUseFacade {
-  constructor(private readonly backend: ComputerUseBackend) {}
+  constructor(
+    private readonly backend: ComputerUseBackend,
+    private readonly policy: MutationPolicy = new LocalMutationPolicy()
+  ) {}
 
   async listTools(): Promise<Tool[]> {
     const backendTools = await this.backend.listTools();
@@ -66,10 +70,39 @@ export class ComputerUseFacade {
     }
 
     const route = TOOL_ROUTES[name];
+    if (route.mutates) {
+      const explicitApp = typeof arguments_.app === "string" ? arguments_.app : undefined;
+      try {
+        await this.policy.authorizeMutation(explicitApp);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return errorResult(message);
+      }
+    }
+
     const backendArguments =
       name === "list_apps" ? { action: "list" } : arguments_;
+    if (name === "get_app_state") {
+      this.policy.recordObservation(undefined);
+    }
 
-    return this.backend.callTool(route.backend, backendArguments);
+    let result: CallToolResult;
+    try {
+      result = await this.backend.callTool(route.backend, backendArguments);
+    } finally {
+      if (route.mutates) {
+        this.policy.invalidateObservation();
+      }
+    }
+
+    if (name === "get_app_state") {
+      const app = typeof arguments_.app_target === "string"
+        ? arguments_.app_target
+        : undefined;
+      this.policy.recordObservation(result.isError ? undefined : app);
+    }
+
+    return result;
   }
 }
 
@@ -79,4 +112,3 @@ export function errorResult(message: string): CallToolResult {
     content: [{ type: "text", text: message }]
   };
 }
-
