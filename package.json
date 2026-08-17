@@ -8,13 +8,13 @@
     "node": ">=20"
   },
   "bin": {
-    "occu": "dist/policy-cli.js",
-    "occu-mcp": "dist/cli.js"
+    "occu": "dist/src/policy-cli.js",
+    "occu-mcp": "dist/src/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "npm run build && npm test",
-    "start": "node dist/cli.js",
+    "start": "node dist/src/cli.js",
     "test": "vitest run --dir test"
   },
   "dependencies": {
