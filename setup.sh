@@ -18,11 +18,12 @@ case "${1:-}" in
   -h|--help)
     echo "Usage: ./setup.sh [options] [APP ...]"
     echo
-    echo "Installs Occu globally as an OpenCode MCP server. Named apps are added"
-    echo "to the local mutation allowlist. Run without apps for observation only."
+    echo "Installs Occu globally as an OpenCode MCP server. With no app arguments,"
+    echo "all explicitly observed apps are allowed. App arguments restrict access."
     echo
     echo "Options:"
     echo "  --config PATH             Override the OpenCode config path"
+    echo "  --observation-only        Clear the allowlist and disable mutations"
     echo "  --skip-permissions        Do not inspect or request macOS permissions"
     echo "  --skip-opencode-check     Do not run opencode mcp list"
     echo "  -h, --help                Show this help"

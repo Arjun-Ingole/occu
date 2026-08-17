@@ -72,6 +72,11 @@ export class PolicyStore {
     return this.read();
   }
 
+  async clear(): Promise<PolicyState> {
+    await this.#writeDocument({ version: 1, allowedApps: [] });
+    return this.read();
+  }
+
   async stop(): Promise<PolicyState> {
     await this.#ensureDirectory();
     await writeFile(this.#stopPath, "Computer-use mutations are stopped.\n", {
@@ -236,4 +241,3 @@ function isMissingFile(error: unknown): boolean {
     (error as NodeJS.ErrnoException).code === "ENOENT"
   );
 }
-

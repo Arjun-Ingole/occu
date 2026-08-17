@@ -20,6 +20,7 @@ import { PolicyStore } from "../src/policy.js";
 interface SetupOptions {
   apps: string[];
   configPath: string;
+  observationOnly: boolean;
   skipPermissions: boolean;
   skipOpenCodeCheck: boolean;
 }
@@ -56,8 +57,16 @@ async function main(): Promise<void> {
   }
 
   const policy = new PolicyStore();
-  for (const app of options.apps) {
-    await policy.allow(app);
+  if (options.observationOnly) {
+    await policy.clear();
+  } else if (options.apps.length > 0) {
+    await policy.clear();
+    for (const app of options.apps) {
+      await policy.allow(app);
+    }
+  } else {
+    await policy.clear();
+    await policy.allow("*");
   }
   const policyState = await policy.read();
   console.log(
@@ -86,8 +95,8 @@ async function main(): Promise<void> {
   }
 
   console.log("\nOccu setup complete. Restart OpenCode, then run `opencode mcp list`.");
-  if (options.apps.length === 0) {
-    console.log("Rerun with app names to allow mutations, for example: ./setup.sh TextEdit");
+  if (options.observationOnly) {
+    console.log("Mutations are disabled. Rerun ./setup.sh to allow every observed app.");
   }
 }
 
@@ -168,6 +177,7 @@ function permissionKind(name: string | undefined): string | undefined {
 function parseArguments(arguments_: string[]): SetupOptions {
   const apps: string[] = [];
   let configPath = defaultOpenCodeConfigPath();
+  let observationOnly = false;
   let skipPermissions = false;
   let skipOpenCodeCheck = false;
 
@@ -185,6 +195,8 @@ function parseArguments(arguments_: string[]): SetupOptions {
       index += 1;
     } else if (argument === "--skip-permissions") {
       skipPermissions = true;
+    } else if (argument === "--observation-only") {
+      observationOnly = true;
     } else if (argument === "--skip-opencode-check") {
       skipOpenCodeCheck = true;
     } else if (argument?.startsWith("-")) {
@@ -194,7 +206,11 @@ function parseArguments(arguments_: string[]): SetupOptions {
     }
   }
 
-  return { apps, configPath, skipPermissions, skipOpenCodeCheck };
+  if (observationOnly && apps.length > 0) {
+    throw new Error("--observation-only cannot be combined with app names");
+  }
+
+  return { apps, configPath, observationOnly, skipPermissions, skipOpenCodeCheck };
 }
 
 function defaultOpenCodeConfigPath(): string {
@@ -208,11 +224,12 @@ function defaultOpenCodeConfigPath(): string {
 function printUsage(): void {
   console.log(`Usage: ./setup.sh [options] [APP ...]
 
-Installs Occu globally as an OpenCode MCP server. Named apps are added to the
-local mutation allowlist. With no apps, Occu remains observation-only.
+Installs Occu globally as an OpenCode MCP server. With no app arguments, all
+explicitly observed apps are allowed. App arguments restrict mutations to those apps.
 
 Options:
   --config PATH             Override the OpenCode config path
+  --observation-only        Clear the allowlist and disable mutations
   --skip-permissions        Do not inspect or request macOS permissions
   --skip-opencode-check     Do not run opencode mcp list
   -h, --help                Show this help`);
@@ -295,4 +312,3 @@ main().catch((error: unknown) => {
   console.error(`Setup failed: ${message}`);
   process.exitCode = 1;
 });
-

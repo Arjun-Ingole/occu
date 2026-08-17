@@ -14,25 +14,31 @@ The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
 
 ## Setup
 
-Run the installer with the macOS applications OpenCode may control:
+Install Occu globally for OpenCode:
 
 ```bash
-./setup.sh TextEdit "Google Chrome"
+./setup.sh
 ```
 
 The script installs dependencies, builds Occu, safely merges the global OpenCode
-configuration, creates a backup of an existing configuration, adds the named apps
-to the mutation allowlist, checks the native backend, and requests missing macOS
-permissions. Approve any request in System Settings, restart OpenCode, then run:
+configuration, creates a backup of an existing configuration, allows mutations in
+every explicitly observed app, checks the native backend, and requests missing
+macOS permissions. Approve any request in System Settings, restart OpenCode, then run:
 
 ```bash
 opencode mcp list
 ```
 
-With no app arguments, setup installs an observation-only configuration:
+To restrict mutations to specific apps, pass their names:
 
 ```bash
-./setup.sh
+./setup.sh TextEdit "Google Chrome"
+```
+
+To disable all mutations and retain observation tools only:
+
+```bash
+./setup.sh --observation-only
 ```
 
 The installer is idempotent and configures Occu globally, so OpenCode can be
@@ -68,7 +74,8 @@ bun run policy -- list
 Policy is stored in `~/.config/occu/policy.json`. Set `OCCU_POLICY_DIR` to use a
 different directory, or `OCCU_ALLOWED_APPS` to add a comma-separated ephemeral
 allowlist. `OCCU_ALLOWED_APPS=*` allows every explicitly observed app and should
-only be used in controlled test environments.
+be treated like the installer's default wildcard mode. Use named app arguments or
+`--observation-only` when a narrower policy is required.
 
 ## Tools
 

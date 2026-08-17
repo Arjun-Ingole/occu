@@ -58,6 +58,14 @@ describe("policy store", () => {
     await expect(store.resume()).resolves.toMatchObject({ stopped: false });
   });
 
+  it("clears all persisted application entries", async () => {
+    const { store } = await makeStore();
+    await store.allow("TextEdit");
+    await store.allow("Calculator");
+
+    await expect(store.clear()).resolves.toMatchObject({ allowedApps: [] });
+  });
+
   it("merges environment allowlist entries without persisting them", async () => {
     const { store } = await makeStore({ OCCU_ALLOWED_APPS: "Safari, TextEdit" });
     await expect(store.read()).resolves.toMatchObject({
