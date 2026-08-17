@@ -45,6 +45,7 @@ OpenCode
   v
 Occu (Bun facade)
   | policy.json + STOPPED
+  | Core Foundation visualizer events
   | stdio MCP: observation/background tools
   | trusted local CLI: foreground-approved action + drag
   v
@@ -53,6 +54,14 @@ Peekaboo 4.2.0 (signed universal macOS executable)
   v
 Target macOS application
 ```
+
+For grounded mutations, the facade resolves the target element center from the
+latest snapshot and publishes a best-effort visualizer event through macOS
+distributed notifications. The pinned Peekaboo menu-bar companion renders this as
+a software cursor in its own transparent window. This overlay does not synthesize
+input and does not move the hardware pointer; Peekaboo's background automation
+continues to deliver the actual action independently. Visualizer failures are
+therefore isolated from mutation delivery.
 
 The facade fetches Peekaboo's tool schemas at runtime, verifies every required
 backend tool exists, renames only the supported subset, and passes MCP text,

@@ -6,7 +6,7 @@ the signed Peekaboo 4.2.0 engine.
 
 ## Requirements
 
-- macOS 14 or later
+- macOS 15 or later
 - Bun 1.3.14 or later
 - OpenCode 1.17.18 or later
 
@@ -21,7 +21,8 @@ curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh |
 ```
 
 The bootstrap downloads Occu to `~/.local/share/occu` and then installs
-dependencies, builds the server, safely merges the global OpenCode configuration,
+dependencies, builds the server, installs and verifies the signed software-cursor
+companion, safely merges the global OpenCode configuration,
 creates a backup of an existing configuration, allows mutations in every explicitly
 observed app, checks the native backend, and requests missing macOS permissions.
 Approve any request in System Settings, restart OpenCode, then run:
@@ -89,6 +90,13 @@ Peekaboo is bundled inside Occu and does not need to be installed in `PATH`.
 Occu uses its own daemon socket under the policy directory so other Peekaboo
 installations and older Bridge processes cannot interfere with screen capture.
 
+Targeted background mutations also produce a separate software cursor without
+moving the hardware pointer. Setup installs the pinned, notarized Peekaboo menu-bar
+companion under `~/.local/share/occu-companion`, enables its visualizer and agent
+cursor, launches it in unattended background-host mode, and verifies event delivery.
+It is not copied to `/Applications` and has no Dock presence or normal app windows.
+Pass `--skip-visualizer` only where that feedback is intentionally not wanted.
+
 ## Tools
 
 | OpenCode tool | Purpose | OpenCode default |
@@ -112,6 +120,7 @@ before it. The observation is invalidated after one mutation attempt.
 ```bash
 bun run check
 bun run test:backend
+bun run test:visualizer
 bun audit
 ```
 

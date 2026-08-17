@@ -19,7 +19,7 @@ interface ObservationState {
   elements: Map<string, Point>;
 }
 
-interface VisualizerEvent {
+interface ClickVisualizerEvent {
   id: string;
   createdAt: string;
   payload: {
@@ -29,6 +29,20 @@ interface VisualizerEvent {
     };
   };
 }
+
+interface MovementVisualizerEvent {
+  id: string;
+  createdAt: string;
+  payload: {
+    mouseMovement: {
+      duration: number;
+      from: [number, number];
+      to: [number, number];
+    };
+  };
+}
+
+type VisualizerEvent = ClickVisualizerEvent | MovementVisualizerEvent;
 
 export interface MutationVisualizer {
   recordObservation(result: CallToolResult | undefined): void;
@@ -42,18 +56,23 @@ export interface OccuVisualizerOptions {
   eventDirectory?: string;
   displayHeight?: () => Promise<number>;
   notify?: (descriptor: string) => Promise<void> | void;
+  animationDuration?: number;
 }
 
 export class OccuVisualizer implements MutationVisualizer {
   readonly #eventDirectory: string;
   readonly #displayHeight: () => Promise<number>;
   readonly #notify: (descriptor: string) => Promise<void> | void;
+  readonly #animationDuration: number;
+  #displayHeightPromise: Promise<number> | undefined;
   #observation: ObservationState | undefined;
+  #lastPoint: Point | undefined;
 
   constructor(options: OccuVisualizerOptions = {}) {
     this.#eventDirectory = options.eventDirectory ?? defaultEventDirectory();
     this.#displayHeight = options.displayHeight ?? primaryDisplayHeight;
     this.#notify = options.notify ?? notifyVisualizer;
+    this.#animationDuration = options.animationDuration ?? 0.18;
   }
 
   recordObservation(result: CallToolResult | undefined): void {
@@ -70,9 +89,25 @@ export class OccuVisualizer implements MutationVisualizer {
         return;
       }
 
-      const displayHeight = await this.#displayHeight();
-      const event = createClickEvent(point, displayHeight, arguments_);
-      await this.#dispatch(event);
+      this.#displayHeightPromise ??= this.#displayHeight();
+      const displayHeight = await this.#displayHeightPromise;
+      const target = toAppKitPoint(point, displayHeight);
+      const from = this.#lastPoint ?? {
+        x: Math.max(0, target.x - 100),
+        y: Math.max(0, target.y - 50)
+      };
+      this.#lastPoint = target;
+      const movement = createMovementEvent(from, target, this.#animationDuration);
+      await this.#dispatch(movement, "mouseMovement");
+      if (this.#animationDuration > 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.#animationDuration * 1_000)
+        );
+      }
+      await this.#dispatch(
+        createClickEvent(point, displayHeight, arguments_),
+        "clickFeedback"
+      );
     } catch (error: unknown) {
       if (process.env.OCCU_VISUALIZER_DEBUG === "1") {
         const message = error instanceof Error ? error.message : String(error);
@@ -81,7 +116,10 @@ export class OccuVisualizer implements MutationVisualizer {
     }
   }
 
-  async #dispatch(event: VisualizerEvent): Promise<void> {
+  async #dispatch(
+    event: VisualizerEvent,
+    kind: "mouseMovement" | "clickFeedback"
+  ): Promise<void> {
     await mkdir(this.#eventDirectory, { recursive: true, mode: 0o700 });
     const finalPath = join(this.#eventDirectory, `${event.id}.json`);
     const temporaryPath = `${finalPath}.${process.pid}.tmp`;
@@ -90,7 +128,7 @@ export class OccuVisualizer implements MutationVisualizer {
       mode: 0o600
     });
     await rename(temporaryPath, finalPath);
-    await this.#notify(`${event.id}|clickFeedback`);
+    await this.#notify(`${event.id}|${kind}`);
 
     const cleanup = setTimeout(() => {
       void unlink(finalPath).catch(() => undefined);
@@ -131,7 +169,7 @@ export function createClickEvent(
   arguments_: Record<string, unknown>,
   id: string = crypto.randomUUID(),
   createdAt = new Date().toISOString()
-): VisualizerEvent {
+): ClickVisualizerEvent {
   return {
     id,
     createdAt,
@@ -142,6 +180,30 @@ export function createClickEvent(
       }
     }
   };
+}
+
+export function createMovementEvent(
+  from: Point,
+  to: Point,
+  duration: number,
+  id: string = crypto.randomUUID(),
+  createdAt = new Date().toISOString()
+): MovementVisualizerEvent {
+  return {
+    id,
+    createdAt,
+    payload: {
+      mouseMovement: {
+        duration,
+        from: [Math.round(from.x), Math.round(from.y)],
+        to: [Math.round(to.x), Math.round(to.y)]
+      }
+    }
+  };
+}
+
+function toAppKitPoint(point: Point, displayHeight: number): Point {
+  return { x: point.x, y: displayHeight - point.y };
 }
 
 function mutationPoint(

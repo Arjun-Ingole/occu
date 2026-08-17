@@ -1,12 +1,15 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import {
   access,
   chmod,
   copyFile,
   mkdir,
+  mkdtemp,
   readFile,
   rename,
+  rm,
   stat,
   writeFile
 } from "node:fs/promises";
@@ -23,6 +26,7 @@ interface SetupOptions {
   observationOnly: boolean;
   skipPermissions: boolean;
   skipOpenCodeCheck: boolean;
+  skipVisualizer: boolean;
 }
 
 interface CommandResult {
@@ -42,6 +46,14 @@ interface PermissionStatus {
 }
 
 const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const COMPANION_VERSION = "4.2.0";
+const COMPANION_BUNDLE_ID = "boo.peekaboo.mac";
+const COMPANION_TEAM_ID = "FWJYW4S8P8";
+const COMPANION_SHA256 =
+  "e3d21ae9f8f146bc80051c97ac7197457bd7dabb2fef8ddafb0becdd7b2c9ce7";
+const COMPANION_URL =
+  `https://github.com/openclaw/Peekaboo/releases/download/v${COMPANION_VERSION}/` +
+  `Peekaboo-${COMPANION_VERSION}.app.zip`;
 
 async function main(): Promise<void> {
   const options = parseArguments(process.argv.slice(2));
@@ -49,6 +61,12 @@ async function main(): Promise<void> {
 
   console.log("Building Occu...");
   await runChecked(process.execPath, ["run", "build"], projectDirectory);
+
+  if (!options.skipVisualizer) {
+    const companionPath = await ensureVisualizerCompanion();
+    await enableVisualizer(companionPath);
+    console.log(`Software cursor companion ready: ${companionPath}`);
+  }
 
   const backupPath = await configureOpenCode(options.configPath);
   console.log(`Configured OpenCode: ${options.configPath}`);
@@ -180,6 +198,7 @@ function parseArguments(arguments_: string[]): SetupOptions {
   let observationOnly = false;
   let skipPermissions = false;
   let skipOpenCodeCheck = false;
+  let skipVisualizer = false;
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
@@ -199,6 +218,8 @@ function parseArguments(arguments_: string[]): SetupOptions {
       observationOnly = true;
     } else if (argument === "--skip-opencode-check") {
       skipOpenCodeCheck = true;
+    } else if (argument === "--skip-visualizer") {
+      skipVisualizer = true;
     } else if (argument?.startsWith("-")) {
       throw new Error(`Unknown option: ${argument}`);
     } else if (argument) {
@@ -210,7 +231,14 @@ function parseArguments(arguments_: string[]): SetupOptions {
     throw new Error("--observation-only cannot be combined with app names");
   }
 
-  return { apps, configPath, observationOnly, skipPermissions, skipOpenCodeCheck };
+  return {
+    apps,
+    configPath,
+    observationOnly,
+    skipPermissions,
+    skipOpenCodeCheck,
+    skipVisualizer
+  };
 }
 
 function defaultOpenCodeConfigPath(): string {
@@ -232,7 +260,151 @@ Options:
   --observation-only        Clear the allowlist and disable mutations
   --skip-permissions        Do not inspect or request macOS permissions
   --skip-opencode-check     Do not run opencode mcp list
+  --skip-visualizer         Do not install or launch the software cursor companion
   -h, --help                Show this help`);
+}
+
+async function ensureVisualizerCompanion(): Promise<string> {
+  await requireMacOS15();
+  const companionPath = process.env.OCCU_COMPANION_PATH
+    ? resolve(process.env.OCCU_COMPANION_PATH)
+    : join(homedir(), ".local", "share", "occu-companion", "Peekaboo.app");
+  if (await isValidCompanion(companionPath)) {
+    return companionPath;
+  }
+
+  console.log(`Downloading signed Peekaboo ${COMPANION_VERSION} visualizer...`);
+  const parentDirectory = dirname(companionPath);
+  await mkdir(parentDirectory, { recursive: true, mode: 0o700 });
+  const temporaryDirectory = await mkdtemp(join(parentDirectory, ".install-"));
+  const archivePath = join(temporaryDirectory, "Peekaboo.app.zip");
+  const extractedPath = join(temporaryDirectory, "Peekaboo.app");
+  const backupPath = `${companionPath}.previous-${process.pid}`;
+  let hasBackup = false;
+
+  try {
+    await runChecked(
+      "curl",
+      ["-fsSL", "--retry", "3", COMPANION_URL, "-o", archivePath],
+      projectDirectory
+    );
+    const digest = await sha256(archivePath);
+    if (digest !== COMPANION_SHA256) {
+      throw new Error(
+        `Peekaboo archive checksum mismatch: expected ${COMPANION_SHA256}, received ${digest}`
+      );
+    }
+    await runChecked("ditto", ["-x", "-k", archivePath, temporaryDirectory], projectDirectory);
+    if (!(await isValidCompanion(extractedPath))) {
+      throw new Error("Downloaded Peekaboo app failed signature or identity verification");
+    }
+
+    if (await pathExists(companionPath)) {
+      await rename(companionPath, backupPath);
+      hasBackup = true;
+    }
+    try {
+      await rename(extractedPath, companionPath);
+    } catch (error: unknown) {
+      if (hasBackup) {
+        await rename(backupPath, companionPath);
+        hasBackup = false;
+      }
+      throw error;
+    }
+    if (hasBackup) {
+      await rm(backupPath, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+  return companionPath;
+}
+
+async function isValidCompanion(appPath: string): Promise<boolean> {
+  if (!(await pathExists(join(appPath, "Contents", "MacOS", "Peekaboo")))) {
+    return false;
+  }
+  const checks = await Promise.all([
+    run("plutil", ["-extract", "CFBundleIdentifier", "raw", "-o", "-", join(appPath, "Contents", "Info.plist")], projectDirectory),
+    run("plutil", ["-extract", "CFBundleShortVersionString", "raw", "-o", "-", join(appPath, "Contents", "Info.plist")], projectDirectory),
+    run("codesign", ["--verify", "--deep", "--strict", appPath], projectDirectory),
+    run("codesign", ["-dv", "--verbose=4", appPath], projectDirectory),
+    run("spctl", ["--assess", "--type", "execute", appPath], projectDirectory)
+  ]);
+  const [bundle, version, signature, details, gatekeeper] = checks;
+  return bundle?.exitCode === 0 && bundle.stdout.trim() === COMPANION_BUNDLE_ID &&
+    version?.exitCode === 0 && version.stdout.trim() === COMPANION_VERSION &&
+    signature?.exitCode === 0 && gatekeeper?.exitCode === 0 &&
+    details?.exitCode === 0 &&
+    details.stderr.includes(`TeamIdentifier=${COMPANION_TEAM_ID}`);
+}
+
+async function enableVisualizer(companionPath: string): Promise<void> {
+  await runChecked(
+    "defaults",
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.visualizerEnabled", "-bool", "true"],
+    projectDirectory
+  );
+  await runChecked(
+    "defaults",
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.agentCursorEnabled", "-bool", "true"],
+    projectDirectory
+  );
+  await runChecked(
+    "defaults",
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.showInDock", "-bool", "false"],
+    projectDirectory
+  );
+  const executable = join(companionPath, "Contents", "MacOS", "Peekaboo");
+  if (!(await isProcessRunning(executable))) {
+    const companion = spawn(executable, ["--background-bridge-host"], {
+      detached: true,
+      stdio: "ignore"
+    });
+    companion.unref();
+  }
+  await runChecked(process.execPath, ["scripts/visualizer-smoke.mjs"], projectDirectory);
+}
+
+async function isProcessRunning(executable: string): Promise<boolean> {
+  const result = await run("ps", ["-axo", "command="], projectDirectory);
+  if (result.exitCode !== 0) {
+    return false;
+  }
+  return result.stdout.split("\n").some((command) =>
+    command === executable || command.startsWith(`${executable} `)
+  );
+}
+
+async function requireMacOS15(): Promise<void> {
+  const result = await run("sw_vers", ["-productVersion"], projectDirectory);
+  const major = Number.parseInt(result.stdout.split(".")[0] ?? "", 10);
+  if (result.exitCode !== 0 || !Number.isFinite(major) || major < 15) {
+    throw new Error("The software cursor companion requires macOS 15 or later");
+  }
+}
+
+async function sha256(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  hash.update(await readFile(path));
+  return hash.digest("hex");
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 async function requireCommand(command: string): Promise<void> {

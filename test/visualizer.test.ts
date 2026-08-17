@@ -51,6 +51,7 @@ describe("software cursor visualizer", () => {
     const visualizer = new OccuVisualizer({
       eventDirectory: directory,
       displayHeight: async () => 982,
+      animationDuration: 0,
       notify: (descriptor) => {
         notifications.push(descriptor);
       }
@@ -59,17 +60,28 @@ describe("software cursor visualizer", () => {
 
     await visualizer.previewMutation("click", { on: "B1" });
 
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0]).toMatch(/^[0-9a-f-]+\|clickFeedback$/);
-    const id = notifications[0]?.split("|")[0];
-    const event = JSON.parse(await readFile(join(directory, `${id}.json`), "utf8"));
-    expect(event.payload.clickFeedback).toEqual({ type: "single", point: [120, 772] });
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0]).toMatch(/^[0-9a-f-]+\|mouseMovement$/);
+    expect(notifications[1]).toMatch(/^[0-9a-f-]+\|clickFeedback$/);
+    const movementId = notifications[0]?.split("|")[0];
+    const clickId = notifications[1]?.split("|")[0];
+    const movement = JSON.parse(
+      await readFile(join(directory, `${movementId}.json`), "utf8")
+    );
+    const click = JSON.parse(await readFile(join(directory, `${clickId}.json`), "utf8"));
+    expect(movement.payload.mouseMovement).toEqual({
+      duration: 0,
+      from: [20, 722],
+      to: [120, 772]
+    });
+    expect(click.payload.clickFeedback).toEqual({ type: "single", point: [120, 772] });
   });
 
   it("does not visualize ungrounded keyboard or drag mutations", async () => {
     const notifications: string[] = [];
     const visualizer = new OccuVisualizer({
       displayHeight: async () => 982,
+      animationDuration: 0,
       notify: (descriptor) => {
         notifications.push(descriptor);
       }

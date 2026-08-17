@@ -26,6 +26,7 @@ case "${1:-}" in
     echo "  --observation-only        Clear the allowlist and disable mutations"
     echo "  --skip-permissions        Do not inspect or request macOS permissions"
     echo "  --skip-opencode-check     Do not run opencode mcp list"
+    echo "  --skip-visualizer         Do not install or launch the software cursor companion"
     echo "  -h, --help                Show this help"
     exit 0
     ;;
