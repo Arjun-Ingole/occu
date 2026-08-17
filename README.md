@@ -1,8 +1,104 @@
 # Occu
 
-Occu is a macOS-only computer-use MCP server for OpenCode. It presents a small,
-Codex-style tool surface and delegates native screen observation and UI actions
-to the pinned Peekaboo engine.
+Occu is a macOS-only computer-use MCP server for OpenCode. It exposes a compact,
+Codex-style tool surface and delegates native screen capture and UI automation to
+the signed Peekaboo 4.2.0 engine.
 
-The project is under active construction. See the commit history for completed
-milestones.
+## Requirements
+
+- macOS 14 or later
+- Node.js 22 or later
+- OpenCode 1.17.18 or later
+
+The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
+
+## Setup
+
+Install, build, and inspect the native permission state:
+
+```bash
+npm install
+npm run build
+npm run permissions
+```
+
+Request missing permissions one at a time. macOS opens the corresponding System
+Settings flow; the user must approve it:
+
+```bash
+npm run permissions -- request screen-recording
+npm run permissions -- request accessibility
+```
+
+Allow only applications that OpenCode may mutate:
+
+```bash
+npm run policy -- allow TextEdit
+npm run policy -- allow Calculator
+npm run policy -- status
+```
+
+Then start OpenCode from this directory:
+
+```bash
+opencode .
+```
+
+The checked-in `opencode.json` starts Occu as the `computer_use` local MCP
+server. Observation tools run without an OpenCode prompt. Clicks, typing, key
+presses, scrolling, dragging, value changes, and accessibility actions prompt for
+approval and must also pass Occu's local app policy.
+
+## Safety controls
+
+Stop mutations immediately, including from already-running OpenCode sessions:
+
+```bash
+npm run policy -- stop
+```
+
+Observation remains available while stopped. Resume and manage the allowlist
+with:
+
+```bash
+npm run policy -- resume
+npm run policy -- deny TextEdit
+npm run policy -- list
+```
+
+Policy is stored in `~/.config/occu/policy.json`. Set `OCCU_POLICY_DIR` to use a
+different directory, or `OCCU_ALLOWED_APPS` to add a comma-separated ephemeral
+allowlist. `OCCU_ALLOWED_APPS=*` allows every explicitly observed app and should
+only be used in controlled test environments.
+
+## Tools
+
+| OpenCode tool | Purpose | OpenCode default |
+| --- | --- | --- |
+| `computer_use_list_apps` | List running apps | allow |
+| `computer_use_get_app_state` | Screenshot and accessibility snapshot | allow |
+| `computer_use_permission_status` | Check macOS permissions | allow |
+| `computer_use_click` | Click an element or grounded coordinate | ask |
+| `computer_use_drag` | Drag between grounded targets | ask |
+| `computer_use_perform_action` | Run an accessibility action | ask |
+| `computer_use_press_key` | Press a key or shortcut | ask |
+| `computer_use_scroll` | Scroll a target | ask |
+| `computer_use_set_value` | Set a control's value | ask |
+| `computer_use_type_text` | Type text into a control | ask |
+
+Every mutation requires a successful, named `get_app_state` observation just
+before it. The observation is invalidated after one mutation attempt.
+
+## Development
+
+```bash
+npm run check
+npm audit
+```
+
+`OCCU_BACKEND_COMMAND` and JSON-array `OCCU_BACKEND_ARGS` can point the facade at
+another stdio MCP backend for integration tests. The replacement must provide
+the pinned Peekaboo tool contract.
+
+The researched design and security boundaries are documented in
+[`docs/architecture.md`](docs/architecture.md).
