@@ -59,9 +59,9 @@ opencode .
 ```
 
 Run `./setup.sh --help` for noninteractive permission and config-path options.
-The checked-in `opencode.json` also supports project-local development. Observation
-tools run without an OpenCode prompt. Mutations prompt for approval and must pass
-Occu's local app policy.
+The checked-in `opencode.json` also supports project-local development. All Occu
+tools run without an OpenCode prompt by default, while mutations must still pass
+Occu's local observation and app policy.
 
 ## Safety controls
 
@@ -104,13 +104,13 @@ Pass `--skip-visualizer` only where that feedback is intentionally not wanted.
 | `computer_use_list_apps` | List running apps | allow |
 | `computer_use_get_app_state` | Screenshot and accessibility snapshot | allow |
 | `computer_use_permission_status` | Check macOS permissions | allow |
-| `computer_use_click` | Click an element or grounded coordinate | ask |
-| `computer_use_drag` | Drag between grounded targets | ask |
-| `computer_use_perform_action` | Run an accessibility action | ask |
-| `computer_use_press_key` | Press a key or shortcut | ask |
-| `computer_use_scroll` | Scroll a target | ask |
-| `computer_use_set_value` | Set a control's value | ask |
-| `computer_use_type_text` | Type text into a control | ask |
+| `computer_use_click` | Click an element or grounded coordinate | allow |
+| `computer_use_drag` | Drag between grounded targets | allow |
+| `computer_use_perform_action` | Run an accessibility action | allow |
+| `computer_use_press_key` | Press a key or shortcut | allow |
+| `computer_use_scroll` | Scroll a target | allow |
+| `computer_use_set_value` | Set a control's value | allow |
+| `computer_use_type_text` | Type text into a control | allow |
 
 Every mutation requires a successful, named `get_app_state` observation just
 before it. The observation is invalidated after one mutation attempt.

@@ -31,9 +31,9 @@ It does not directly implement the screenshot/action loop of the hosted OpenAI
 computer-use tool, and it does not advertise MCP elicitation in this version.
 Relying on server-driven approval prompts would therefore be brittle.
 
-Occu uses two controls that OpenCode can enforce today:
+Occu uses controls that OpenCode and the local facade can enforce today:
 
-- OpenCode asks before every mutating `computer_use_*` tool.
+- OpenCode allows `computer_use_*` tools without prompting by default.
 - Occu independently denies mutations unless the observed app is locally
   allowlisted and the emergency stop is clear.
 
@@ -89,7 +89,8 @@ rather than sharing Peekaboo's ambient Bridge socket.
   indeterminate transport failure.
 - **Emergency stop:** `occu stop` persists a stop file checked on every mutation.
 - **Local state:** policy files use mode `0600`; their directory uses `0700`.
-- **Two approval layers:** OpenCode prompts for mutation and Occu checks policy.
+- **Local enforcement:** Occu checks observation freshness, app policy, and the
+  emergency stop even when OpenCode's tool permission is set to `allow`.
 - **No screenshot archive:** Occu relays image blocks in memory. Peekaboo may use
   short-lived capture files as part of its native observation implementation.
 

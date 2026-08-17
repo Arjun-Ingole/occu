@@ -10,9 +10,6 @@
     }
   },
   "permission": {
-    "computer_use_*": "ask",
-    "computer_use_list_apps": "allow",
-    "computer_use_get_app_state": "allow",
-    "computer_use_permission_status": "allow"
+    "computer_use_*": "allow"
   }
 }

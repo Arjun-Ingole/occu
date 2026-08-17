@@ -17,11 +17,11 @@ const FORMATTING = {
   eol: "\n"
 };
 
-const OCCU_PERMISSION_RULES = [
-  ["computer_use_*", "ask"],
-  ["computer_use_list_apps", "allow"],
-  ["computer_use_get_app_state", "allow"],
-  ["computer_use_permission_status", "allow"]
+const OCCU_PERMISSION_NAMES = [
+  "computer_use_*",
+  "computer_use_list_apps",
+  "computer_use_get_app_state",
+  "computer_use_permission_status"
 ] as const;
 
 export function mergeOpenCodeConfig(
@@ -44,12 +44,10 @@ export function mergeOpenCodeConfig(
     timeout: 30000
   });
 
-  for (const [name] of OCCU_PERMISSION_RULES) {
+  for (const name of OCCU_PERMISSION_NAMES) {
     updated = removeValue(updated, ["permission", name]);
   }
-  for (const [name, action] of OCCU_PERMISSION_RULES) {
-    updated = setValue(updated, ["permission", name], action);
-  }
+  updated = setValue(updated, ["permission", "computer_use_*"], "allow");
 
   return `${updated.trimEnd()}\n`;
 }

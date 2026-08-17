@@ -19,12 +19,7 @@ describe("OpenCode config installer", () => {
       enabled: true,
       timeout: 30000
     });
-    expect(Object.keys(result.permission)).toEqual([
-      "computer_use_*",
-      "computer_use_list_apps",
-      "computer_use_get_app_state",
-      "computer_use_permission_status"
-    ]);
+    expect(result.permission).toEqual({ "computer_use_*": "allow" });
   });
 
   it("preserves unrelated JSONC settings and comments", () => {
@@ -42,7 +37,7 @@ describe("OpenCode config installer", () => {
     expect(result.permission.bash).toBe("ask");
   });
 
-  it("moves Occu's wildcard before its specific allow rules", () => {
+  it("replaces stale Occu permission overrides with one allow rule", () => {
     const source = `{
   "permission": {
     "computer_use_list_apps": "deny",
@@ -51,13 +46,7 @@ describe("OpenCode config installer", () => {
 }`;
     const result = parse(mergeOpenCodeConfig(source, install)) as Record<string, any>;
 
-    expect(Object.keys(result.permission)).toEqual([
-      "computer_use_*",
-      "computer_use_list_apps",
-      "computer_use_get_app_state",
-      "computer_use_permission_status"
-    ]);
-    expect(result.permission.computer_use_list_apps).toBe("allow");
+    expect(result.permission).toEqual({ "computer_use_*": "allow" });
   });
 
   it("is idempotent", () => {
@@ -71,4 +60,3 @@ describe("OpenCode config installer", () => {
     );
   });
 });
-
