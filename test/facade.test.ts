@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { ComputerUseBackend } from "../src/backend.js";
 import {
   ComputerUseFacade,
+  addTypingGuidance,
   normalizeDispatchedMutation
 } from "../src/facade.js";
 import type { MutationPolicy } from "../src/policy.js";
@@ -66,6 +67,10 @@ class RecordingPolicy implements MutationPolicy {
     this.observations.push(app);
   }
 
+  async authorizeApp(app: string | undefined): Promise<void> {
+    this.authorizations.push(app);
+  }
+
   async authorizeMutation(explicitApp?: string): Promise<void> {
     this.authorizations.push(explicitApp);
   }
@@ -98,6 +103,7 @@ describe("computer-use facade", () => {
 
     expect(tools.map((tool) => tool.name)).toEqual([
       "list_apps",
+      "open_app",
       "get_app_state",
       "permission_status",
       "click",
@@ -114,8 +120,17 @@ describe("computer-use facade", () => {
       additionalProperties: false
     });
     expect(tools[0]?.annotations?.readOnlyHint).toBe(true);
-    expect(tools[3]?.annotations?.readOnlyHint).toBe(false);
+    expect(tools[1]?.annotations?.readOnlyHint).toBe(false);
     expect(tools.every((tool) => !tool.description?.endsWith(" description"))).toBe(true);
+
+    const clickSchema = tools.find((tool) => tool.name === "click")?.inputSchema;
+    const typeSchema = tools.find((tool) => tool.name === "type_text")?.inputSchema;
+    expect(clickSchema?.required).toContain("snapshot");
+    expect(clickSchema?.properties).not.toHaveProperty("foreground");
+    expect(clickSchema?.properties).not.toHaveProperty("coordinate_reference");
+    expect(typeSchema?.required).toEqual(["snapshot", "text"]);
+    expect(typeSchema?.properties).not.toHaveProperty("app");
+    expect(typeSchema?.properties).not.toHaveProperty("foreground");
   });
 
   it("translates list_apps into the backend list action", async () => {
@@ -126,6 +141,25 @@ describe("computer-use facade", () => {
 
     expect(backend.calls).toEqual([
       { name: "app", arguments_: { action: "list" } }
+    ]);
+  });
+
+  it("authorizes and translates app launch without an observation", async () => {
+    const backend = new RecordingBackend();
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
+
+    await facade.callTool("open_app", { app: "TextEdit" });
+
+    expect(policy.authorizations).toEqual(["TextEdit"]);
+    expect(backend.calls).toEqual([
+      {
+        name: "app",
+        arguments_: {
+          action: "launch",
+          name: "TextEdit"
+        }
+      }
     ]);
   });
 
@@ -153,27 +187,25 @@ describe("computer-use facade", () => {
     const policy = new RecordingPolicy();
     const facade = new ComputerUseFacade(backend, policy);
 
-    await facade.callTool("press_key", { app: "TextEdit", keys: ["RETURN"] });
+    await facade.callTool("press_key", { snapshot: "snapshot-1", key: "Return" });
 
-    expect(policy.authorizations).toEqual(["TextEdit"]);
+    expect(policy.authorizations).toEqual([undefined]);
     expect(policy.invalidations).toBe(1);
     expect(backend.calls[0]?.name).toBe("press");
   });
 
-  it("canonicalizes snapshot-bound typing after authorizing its app", async () => {
+  it("passes snapshot-bound typing without competing target selectors", async () => {
     const backend = new RecordingBackend();
     const policy = new RecordingPolicy();
     const facade = new ComputerUseFacade(backend, policy);
 
     await facade.callTool("type_text", {
-      app: "TextEdit",
       clear: true,
       snapshot: "snapshot-1",
-      text: "hello",
-      window_id: 42
+      text: "hello"
     });
 
-    expect(policy.authorizations).toEqual(["TextEdit"]);
+    expect(policy.authorizations).toEqual([undefined]);
     expect(backend.calls).toEqual([
       {
         name: "type",
@@ -248,10 +280,31 @@ describe("computer-use facade", () => {
 
     expect(result.isError).toBe(false);
     expect(result._meta?.state).toBe("dispatched_unverified");
-    expect(result.content[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("do not retry")
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: "Action sent. Observe the app before the next action."
+      }
+    ]);
+  });
+
+  it("guides snapshot-only typing when no text element is exposed", () => {
+    const result = addTypingGuidance({
+      content: [{ type: "text", text: "AXScrollArea (1 found)" }]
     });
+
+    expect(result.content.at(-1)).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("omit on")
+    });
+  });
+
+  it("does not add typing guidance when a text element is exposed", () => {
+    const result = {
+      content: [{ type: "text" as const, text: "AXTextArea (1 found)" }]
+    };
+
+    expect(addTypingGuidance(result)).toBe(result);
   });
 
   it("preserves refusals as errors", () => {

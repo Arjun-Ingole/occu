@@ -75,6 +75,14 @@ describe("policy store", () => {
 });
 
 describe("local mutation policy", () => {
+  it("allows an allowlisted app to open before observation", async () => {
+    const { store } = await makeStore({ OCCU_ALLOWED_APPS: "TextEdit" });
+    const policy = new LocalMutationPolicy(store);
+
+    await expect(policy.authorizeApp("TextEdit")).resolves.toBeUndefined();
+    await expect(policy.authorizeApp("Safari")).rejects.toThrow("not allowed");
+  });
+
   it("requires an explicit observation and allowlisted app", async () => {
     const { store } = await makeStore();
     const policy = new LocalMutationPolicy(store);

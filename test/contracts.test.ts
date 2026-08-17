@@ -10,6 +10,7 @@ describe("public tool contract", () => {
   it("exposes a compact Codex-style surface", () => {
     expect(PUBLIC_TOOL_NAMES).toEqual([
       "list_apps",
+      "open_app",
       "get_app_state",
       "permission_status",
       "click",
@@ -24,6 +25,7 @@ describe("public tool contract", () => {
 
   it("marks observation tools as read-only", () => {
     expect(TOOL_ROUTES.list_apps.mutates).toBe(false);
+    expect(TOOL_ROUTES.open_app.mutates).toBe(true);
     expect(TOOL_ROUTES.get_app_state.mutates).toBe(false);
     expect(TOOL_ROUTES.permission_status.mutates).toBe(false);
   });
@@ -33,4 +35,3 @@ describe("public tool contract", () => {
     expect(isPublicToolName("shell")).toBe(false);
   });
 });
-

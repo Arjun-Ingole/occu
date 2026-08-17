@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildActionCliArguments,
+  buildOpenArguments,
   buildDragCliArguments,
   cliEnvelopeToToolResult,
   resolveBackendCommand,
@@ -61,6 +62,15 @@ describe("Peekaboo backend configuration", () => {
       "--no-remote",
       "--json"
     ]);
+  });
+
+  it("builds macOS open arguments for names, bundle IDs, and paths", () => {
+    expect(buildOpenArguments("TextEdit")).toEqual(["-a", "TextEdit"]);
+    expect(buildOpenArguments("com.apple.TextEdit")).toEqual([
+      "-b",
+      "com.apple.TextEdit"
+    ]);
+    expect(buildOpenArguments("/tmp/Fixture.app")).toEqual(["/tmp/Fixture.app"]);
   });
 
   it("builds a local accessibility action command", () => {

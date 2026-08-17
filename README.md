@@ -81,9 +81,10 @@ windows. Use `--skip-visualizer` during setup to disable this feature.
 | Tool | Purpose |
 | --- | --- |
 | `computer_use_list_apps` | List running applications |
+| `computer_use_open_app` | Launch or activate an application |
 | `computer_use_get_app_state` | Capture a screenshot and accessibility snapshot |
 | `computer_use_permission_status` | Check required macOS permissions |
-| `computer_use_click` | Click an observed element, query, or coordinate |
+| `computer_use_click` | Click an observed element or coordinate |
 | `computer_use_drag` | Drag between grounded targets |
 | `computer_use_perform_action` | Run an accessibility action |
 | `computer_use_press_key` | Press a key or shortcut |
@@ -91,9 +92,11 @@ windows. Use `--skip-visualizer` during setup to disable this feature.
 | `computer_use_set_value` | Set an accessibility value |
 | `computer_use_type_text` | Type into an observed control |
 
-Call `computer_use_get_app_state` with an explicit app before each mutation. Use
-element IDs from that observation when available. Otherwise use coordinates from
-the current screenshot. Observe again after every mutation.
+Use `computer_use_open_app` instead of shell or AppleScript to launch an application.
+Call `computer_use_get_app_state` with an explicit app before each action and pass
+its snapshot ID. Use actionable element IDs when available. For editors without a
+text element, call `computer_use_type_text` without `on` and without clicking first.
+Observe again after every action.
 
 ## Development
 
@@ -108,6 +111,6 @@ bun audit
 
 `bun run check` typechecks the source, scripts, and tests, builds the production
 server, and runs the automated test suite. `test:live` compiles a temporary AppKit
-fixture and verifies all ten MCP tools without using personal app data.
+fixture and verifies all eleven MCP tools without using personal app data.
 
 `OCCU_BACKEND_COMMAND` and `OCCU_BACKEND_ARGS` are available for integration tests.

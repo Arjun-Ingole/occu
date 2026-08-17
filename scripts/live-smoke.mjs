@@ -1,6 +1,5 @@
-import { spawn } from "node:child_process";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -18,12 +17,27 @@ if (process.platform !== "darwin") {
 }
 
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "occu-live-smoke-"));
-const fixturePath = join(temporaryDirectory, APP_NAME);
+const fixtureBundle = join(temporaryDirectory, `${APP_NAME}.app`);
+const fixturePath = join(fixtureBundle, "Contents", "MacOS", APP_NAME);
 const policyDirectory = join(temporaryDirectory, "policy");
-let fixture;
+let fixturePid;
 let client;
 
 try {
+  await mkdir(join(fixtureBundle, "Contents", "MacOS"), { recursive: true });
+  await writeFile(
+    join(fixtureBundle, "Contents", "Info.plist"),
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>${APP_NAME}</string>
+<key>CFBundleIdentifier</key><string>dev.occu.fixture</string>
+<key>CFBundleName</key><string>${APP_NAME}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+</dict></plist>
+`,
+    "utf8"
+  );
   await execFileAsync("xcrun", [
     "swiftc",
     "-framework",
@@ -32,8 +46,6 @@ try {
     "-o",
     fixturePath
   ]);
-  fixture = spawn(fixturePath, [], { stdio: "ignore" });
-
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [join(process.cwd(), "dist", "src", "cli.js")],
@@ -60,6 +72,7 @@ try {
       "drag",
       "get_app_state",
       "list_apps",
+      "open_app",
       "perform_action",
       "permission_status",
       "press_key",
@@ -70,8 +83,12 @@ try {
     `Unexpected public tool list: ${toolNames.join(", ")}`
   );
 
+  await call("open_app", { app: fixtureBundle });
+  console.log("[ok] open_app");
+
   const apps = await waitForFixture();
   assert(textContent(apps).includes(APP_NAME), "Fixture app was not listed");
+  fixturePid = processIdForApp(textContent(apps), APP_NAME);
   console.log("[ok] list_apps");
 
   const permissions = await call("permission_status", {});
@@ -148,7 +165,6 @@ try {
     const y = Math.round(bounds.y + bounds.height / 2);
     return {
       duration: 300,
-      foreground: true,
       from_coords: `${Math.round(bounds.x + bounds.width / 2)},${y}`,
       snapshot: state.snapshot,
       steps: 12,
@@ -159,15 +175,15 @@ try {
   assert(draggedValue > 70, `Drag did not move slider far enough: ${draggedValue}`);
   console.log("[ok] drag");
 
-  console.log("All 10 Occu MCP tools passed live macOS verification.");
+  console.log("All 11 Occu MCP tools passed live macOS verification.");
 } finally {
   await client?.close().catch(() => undefined);
-  if (fixture && fixture.exitCode === null) {
-    fixture.kill("SIGTERM");
-    await Promise.race([
-      new Promise((resolve) => fixture.once("exit", resolve)),
-      new Promise((resolve) => setTimeout(resolve, 2_000))
-    ]);
+  if (fixturePid) {
+    try {
+      process.kill(fixturePid, "SIGTERM");
+    } catch {
+      // The fixture may already have exited.
+    }
   }
   await rm(temporaryDirectory, { recursive: true, force: true });
 }
@@ -185,8 +201,22 @@ async function call(name, arguments_) {
 }
 
 async function mutate(name, argumentsForState) {
-  const state = await observe();
-  return call(name, argumentsForState(state));
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const state = await observe();
+    try {
+      return await call(name, argumentsForState(state));
+    } catch (error) {
+      if (
+        attempt === 0 &&
+        error instanceof Error &&
+        error.message.includes("Snapshot is stale")
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`${name} did not complete after refreshing its snapshot`);
 }
 
 async function observe() {
@@ -260,6 +290,13 @@ function textContent(result) {
     .filter((item) => item.type === "text")
     .map((item) => item.text)
     .join("\n");
+}
+
+function processIdForApp(text, appName) {
+  const line = text.split("\n").find((candidate) => candidate.includes(appName));
+  const pid = line?.match(/(?:PID:?\s*|pid[=:]\s*)(\d+)/i)?.[1];
+  assert(pid, `Could not parse process ID for ${appName}`);
+  return Number(pid);
 }
 
 function valueForIdentifier(text, identifier) {

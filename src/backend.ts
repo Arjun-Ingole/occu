@@ -110,6 +110,9 @@ export class PeekabooBackend implements ComputerUseBackend {
     name: string,
     arguments_: Record<string, unknown>
   ): Promise<CallToolResult> {
+    if (name === "app" && arguments_.action === "launch") {
+      return this.#openApplication(arguments_);
+    }
     if (name === "drag") {
       return this.#callCliTool(name, buildDragCliArguments(arguments_));
     }
@@ -149,12 +152,39 @@ export class PeekabooBackend implements ComputerUseBackend {
     }
     return cliEnvelopeToToolResult(JSON.parse(stdout) as unknown, operation);
   }
+
+  async #openApplication(arguments_: Record<string, unknown>): Promise<CallToolResult> {
+    const name = optionalString(arguments_.name);
+    if (!name) {
+      throw new Error("App launch requires a name");
+    }
+    await execFileAsync("/usr/bin/open", buildOpenArguments(name));
+    return {
+      isError: false,
+      _meta: {
+        mutation_dispatched: true,
+        retry_safe: false,
+        state: "dispatched_unverified"
+      },
+      content: [{ type: "text", text: "Application opened." }]
+    };
+  }
 }
 
 export function resolvePeekabooCommand(): string {
   const require = createRequire(import.meta.url);
   const packagePath = require.resolve("@steipete/peekaboo/package.json");
   return join(dirname(packagePath), "peekaboo");
+}
+
+export function buildOpenArguments(app: string): string[] {
+  if (app.includes("/") || app.toLocaleLowerCase().endsWith(".app")) {
+    return [app];
+  }
+  if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(app)) {
+    return ["-b", app];
+  }
+  return ["-a", app];
 }
 
 export function buildDragCliArguments(

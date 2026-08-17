@@ -23,7 +23,7 @@ export async function startOccuServer(
     {
       capabilities: { tools: {} },
       instructions:
-        "Observe the target before each mutation. Use current element IDs when available, otherwise use coordinates from the current screenshot."
+        "Use open_app to launch or activate apps. Observe before each action and pass its snapshot ID. For editors without a text element, call type_text without on and without clicking first."
     }
   );
 

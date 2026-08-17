@@ -1,5 +1,6 @@
 export const TOOL_ROUTES = {
   list_apps: { backend: "app", mutates: false },
+  open_app: { backend: "app", mutates: true },
   get_app_state: { backend: "see", mutates: false },
   permission_status: { backend: "permissions", mutates: false },
   click: { backend: "click", mutates: true },
@@ -20,4 +21,3 @@ export const PUBLIC_TOOL_NAMES = Object.freeze(
 export function isPublicToolName(value: string): value is PublicToolName {
   return value in TOOL_ROUTES;
 }
-

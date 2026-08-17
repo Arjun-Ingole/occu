@@ -14,6 +14,7 @@ export interface PolicyState {
 
 export interface MutationPolicy {
   recordObservation(app: string | undefined): void;
+  authorizeApp(app: string | undefined): Promise<void>;
   authorizeMutation(explicitApp?: string): Promise<void>;
   invalidateObservation(): void;
 }
@@ -137,11 +138,21 @@ export class LocalMutationPolicy implements MutationPolicy {
     this.#observedApp = normalizeOptionalApp(app);
   }
 
+  async authorizeApp(app: string | undefined): Promise<void> {
+    const state = await this.store.read();
+    assertMutationsRunning(state);
+    const target = normalizeOptionalApp(app);
+    if (!target) {
+      throw new Error("Application name cannot be empty.");
+    }
+    if (!isAllowed(target, state.allowedApps)) {
+      throw new Error(`Mutations for ${target} are not allowed by local policy.`);
+    }
+  }
+
   async authorizeMutation(explicitApp?: string): Promise<void> {
     const state = await this.store.read();
-    if (state.stopped) {
-      throw new Error("Computer-use mutations are stopped by local policy.");
-    }
+    assertMutationsRunning(state);
 
     const target = normalizeOptionalApp(explicitApp) ?? this.#observedApp;
     if (!target || !this.#observedApp) {
@@ -161,6 +172,12 @@ export class LocalMutationPolicy implements MutationPolicy {
 
   invalidateObservation(): void {
     this.#observedApp = undefined;
+  }
+}
+
+function assertMutationsRunning(state: PolicyState): void {
+  if (state.stopped) {
+    throw new Error("Computer-use mutations are stopped by local policy.");
   }
 }
 

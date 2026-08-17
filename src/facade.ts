@@ -19,19 +19,216 @@ const EMPTY_OBJECT_SCHEMA: Tool["inputSchema"] = {
   additionalProperties: false
 };
 
+const SNAPSHOT_PROPERTY = {
+  type: "string",
+  minLength: 1,
+  description: "Snapshot ID from the latest get_app_state result."
+} as const;
+
+const ELEMENT_PROPERTY = {
+  type: "string",
+  minLength: 1,
+  description: "Actionable element ID from the latest get_app_state result."
+} as const;
+
+const PUBLIC_INPUT_SCHEMAS: Record<PublicToolName, Tool["inputSchema"]> = {
+  list_apps: EMPTY_OBJECT_SCHEMA,
+  open_app: {
+    type: "object",
+    properties: {
+      app: {
+        type: "string",
+        minLength: 1,
+        description: "Application name or bundle ID."
+      }
+    },
+    required: ["app"],
+    additionalProperties: false
+  },
+  get_app_state: {
+    type: "object",
+    properties: {
+      app_target: {
+        type: "string",
+        minLength: 1,
+        description: "Exact application name, bundle ID, or PID:<number>."
+      },
+      annotate: {
+        type: "boolean",
+        default: false,
+        description: "Add element markers to the screenshot."
+      },
+      ocr: {
+        type: "boolean",
+        default: false,
+        description: "Recognize visible text that is absent from accessibility data."
+      }
+    },
+    required: ["app_target"],
+    additionalProperties: false
+  },
+  permission_status: EMPTY_OBJECT_SCHEMA,
+  click: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      on: ELEMENT_PROPERTY,
+      coords: {
+        type: "string",
+        minLength: 3,
+        pattern: "^-?[0-9]+(?:\\.[0-9]+)?,-?[0-9]+(?:\\.[0-9]+)?$",
+        description: "Screenshot coordinate like 450,300. Do not include brackets."
+      },
+      double: { type: "boolean", default: false },
+      right: { type: "boolean", default: false }
+    },
+    required: ["snapshot"],
+    additionalProperties: false,
+    oneOf: [
+      { required: ["on"], not: { required: ["coords"] } },
+      { required: ["coords"], not: { required: ["on"] } }
+    ]
+  },
+  drag: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      from: { ...ELEMENT_PROPERTY, description: "Starting actionable element ID." },
+      from_coords: {
+        type: "string",
+        minLength: 3,
+        pattern: "^-?[0-9]+(?:\\.[0-9]+)?,-?[0-9]+(?:\\.[0-9]+)?$",
+        description: "Starting coordinate like 100,200."
+      },
+      to: { ...ELEMENT_PROPERTY, description: "Destination actionable element ID." },
+      to_coords: {
+        type: "string",
+        minLength: 3,
+        pattern: "^-?[0-9]+(?:\\.[0-9]+)?,-?[0-9]+(?:\\.[0-9]+)?$",
+        description: "Destination coordinate like 300,400."
+      },
+      duration: { type: "integer", minimum: 100, default: 500 },
+      steps: { type: "integer", minimum: 2, default: 10 },
+      button: { type: "string", enum: ["left", "right"], default: "left" }
+    },
+    required: ["snapshot"],
+    additionalProperties: false,
+    allOf: [
+      { oneOf: [{ required: ["from"] }, { required: ["from_coords"] }] },
+      { oneOf: [{ required: ["to"] }, { required: ["to_coords"] }] }
+    ]
+  },
+  perform_action: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      on: ELEMENT_PROPERTY,
+      action: {
+        type: "string",
+        minLength: 1,
+        description: "Supported accessibility action listed for the element."
+      }
+    },
+    required: ["snapshot", "on", "action"],
+    additionalProperties: false
+  },
+  press_key: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      key: {
+        type: "string",
+        minLength: 1,
+        description: "Single key such as Return, Escape, or Backspace."
+      },
+      keys: {
+        type: "array",
+        minItems: 1,
+        items: { type: "string", minLength: 1 },
+        description: "Shortcut or key sequence, such as [\"cmd+a\"]."
+      },
+      modifiers: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: ["cmd", "shift", "option", "ctrl", "fn"]
+        }
+      },
+      count: { type: "integer", minimum: 1, maximum: 100, default: 1 }
+    },
+    required: ["snapshot"],
+    additionalProperties: false,
+    oneOf: [
+      { required: ["key"], not: { required: ["keys"] } },
+      { required: ["keys"], not: { required: ["key"] } }
+    ]
+  },
+  scroll: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      on: ELEMENT_PROPERTY,
+      direction: {
+        type: "string",
+        enum: ["up", "down", "left", "right"]
+      },
+      amount: { type: "integer", minimum: 1, default: 3 }
+    },
+    required: ["snapshot", "on", "direction"],
+    additionalProperties: false
+  },
+  set_value: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      on: ELEMENT_PROPERTY,
+      value: {
+        description: "New accessibility value.",
+        anyOf: [
+          { type: "string" },
+          { type: "boolean" },
+          { type: "number" }
+        ]
+      }
+    },
+    required: ["snapshot", "on", "value"],
+    additionalProperties: false
+  },
+  type_text: {
+    type: "object",
+    properties: {
+      snapshot: SNAPSHOT_PROPERTY,
+      text: { type: "string", description: "Text to type." },
+      on: {
+        ...ELEMENT_PROPERTY,
+        description: "Optional text element ID. Omit it to type into the active control."
+      },
+      clear: {
+        type: "boolean",
+        default: false,
+        description: "Select and remove existing text before typing."
+      }
+    },
+    required: ["snapshot", "text"],
+    additionalProperties: false
+  }
+};
+
 const TOOL_DESCRIPTIONS: Record<PublicToolName, string> = {
   list_apps: "List running macOS applications and their process identifiers.",
+  open_app: "Launch or activate a macOS application.",
   get_app_state:
-    "Observe a macOS application. Returns its screenshot, accessibility tree, and a snapshot ID for grounded actions.",
+    "Observe one macOS application. Returns a screenshot, accessibility data, and the snapshot ID required by actions.",
   permission_status:
     "Report Screen Recording, Accessibility, and event-synthesis permissions.",
-  click: "Click an element, query, or coordinate from the current observation.",
+  click: "Click an actionable element or screenshot coordinate from the latest observation.",
   drag: "Drag between grounded elements or coordinates.",
   perform_action: "Run an accessibility action on an observed element.",
-  press_key: "Press a key or keyboard shortcut in a macOS application.",
+  press_key: "Press a key or shortcut in the window from the latest observation.",
   scroll: "Scroll an observed element in the requested direction.",
   set_value: "Set the value of an observed accessibility element.",
-  type_text: "Type text into an observed macOS control."
+  type_text:
+    "Type directly into the observed window. Use on for a text element; otherwise omit on. Do not click first."
 };
 
 export class ComputerUseFacade {
@@ -56,8 +253,7 @@ export class ComputerUseFacade {
         ...backendTool,
         name: publicName,
         description: TOOL_DESCRIPTIONS[publicName],
-        inputSchema:
-          publicName === "list_apps" ? EMPTY_OBJECT_SCHEMA : backendTool.inputSchema,
+        inputSchema: PUBLIC_INPUT_SCHEMAS[publicName],
         annotations: {
           ...backendTool.annotations,
           readOnlyHint: !route.mutates
@@ -78,7 +274,11 @@ export class ComputerUseFacade {
     if (route.mutates) {
       const explicitApp = typeof arguments_.app === "string" ? arguments_.app : undefined;
       try {
-        await this.policy.authorizeMutation(explicitApp);
+        if (name === "open_app") {
+          await this.policy.authorizeApp(explicitApp);
+        } else {
+          await this.policy.authorizeMutation(explicitApp);
+        }
         await this.visualizer.previewMutation(name, arguments_);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -106,6 +306,7 @@ export class ComputerUseFacade {
     }
 
     if (name === "get_app_state") {
+      result = addTypingGuidance(result);
       const app = typeof arguments_.app_target === "string"
         ? arguments_.app_target
         : undefined;
@@ -124,20 +325,37 @@ export function canonicalizeBackendArguments(
   if (name === "list_apps") {
     return { action: "list" };
   }
-  if (
-    name !== "type_text" ||
-    typeof arguments_.snapshot !== "string" ||
-    !arguments_.snapshot.trim() ||
-    arguments_.foreground === true
-  ) {
-    return arguments_;
+  if (name === "open_app") {
+    return {
+      action: "launch",
+      name: arguments_.app
+    };
+  }
+  if (name === "drag") {
+    return { ...arguments_, foreground: true };
+  }
+  return arguments_;
+}
+
+export function addTypingGuidance(result: CallToolResult): CallToolResult {
+  if (result.isError || result.content.some((item) =>
+    item.type === "text" && /AX(?:TextArea|TextField|SearchField)/.test(item.text)
+  )) {
+    return result;
   }
 
-  const canonical = { ...arguments_ };
-  for (const key of ["app", "pid", "window_id", "window_index", "window_title"]) {
-    delete canonical[key];
-  }
-  return canonical;
+  return {
+    ...result,
+    content: [
+      ...result.content,
+      {
+        type: "text",
+        text:
+          "No text element is exposed. To type into the active editor, call " +
+          "type_text with this snapshot and omit on. Do not click first."
+      }
+    ]
+  };
 }
 
 function shouldInvalidateObservation(result: CallToolResult): boolean {
@@ -159,11 +377,8 @@ export function normalizeDispatchedMutation(result: CallToolResult): CallToolRes
     content: [
       {
         type: "text",
-        text:
-          "Mutation dispatched, but its effect was not independently verified. " +
-          "Observe the target before continuing; do not retry from this result alone."
-      },
-      ...result.content
+        text: "Action sent. Observe the app before the next action."
+      }
     ]
   };
 }
