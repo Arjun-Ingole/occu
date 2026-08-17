@@ -14,40 +14,39 @@ The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
 
 ## Setup
 
-Install, build, and inspect the native permission state:
+Run the installer with the macOS applications OpenCode may control:
 
 ```bash
-bun install
-bun run build
-bun run permissions
+./setup.sh TextEdit "Google Chrome"
 ```
 
-Request missing permissions one at a time. macOS opens the corresponding System
-Settings flow; the user must approve it:
+The script installs dependencies, builds Occu, safely merges the global OpenCode
+configuration, creates a backup of an existing configuration, adds the named apps
+to the mutation allowlist, checks the native backend, and requests missing macOS
+permissions. Approve any request in System Settings, restart OpenCode, then run:
 
 ```bash
-bun run permissions -- request screen-recording
-bun run permissions -- request accessibility
+opencode mcp list
 ```
 
-Allow only applications that OpenCode may mutate:
+With no app arguments, setup installs an observation-only configuration:
 
 ```bash
-bun run policy -- allow TextEdit
-bun run policy -- allow Calculator
-bun run policy -- status
+./setup.sh
 ```
 
-Then start OpenCode from this directory:
+The installer is idempotent and configures Occu globally, so OpenCode can be
+started from any project:
 
 ```bash
+cd ~/projects/my-project
 opencode .
 ```
 
-The checked-in `opencode.json` starts Occu as the `computer_use` local MCP
-server. Observation tools run without an OpenCode prompt. Clicks, typing, key
-presses, scrolling, dragging, value changes, and accessibility actions prompt for
-approval and must also pass Occu's local app policy.
+Run `./setup.sh --help` for noninteractive permission and config-path options.
+The checked-in `opencode.json` also supports project-local development. Observation
+tools run without an OpenCode prompt. Mutations prompt for approval and must pass
+Occu's local app policy.
 
 ## Safety controls
 
