@@ -14,16 +14,17 @@ The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
 
 ## Setup
 
-Install Occu globally for OpenCode:
+Install Occu globally for OpenCode with one command:
 
 ```bash
-./setup.sh
+curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh | sh
 ```
 
-The script installs dependencies, builds Occu, safely merges the global OpenCode
-configuration, creates a backup of an existing configuration, allows mutations in
-every explicitly observed app, checks the native backend, and requests missing
-macOS permissions. Approve any request in System Settings, restart OpenCode, then run:
+The bootstrap downloads Occu to `~/.local/share/occu` and then installs
+dependencies, builds the server, safely merges the global OpenCode configuration,
+creates a backup of an existing configuration, allows mutations in every explicitly
+observed app, checks the native backend, and requests missing macOS permissions.
+Approve any request in System Settings, restart OpenCode, then run:
 
 ```bash
 opencode mcp list
@@ -32,14 +33,21 @@ opencode mcp list
 To restrict mutations to specific apps, pass their names:
 
 ```bash
-./setup.sh TextEdit "Google Chrome"
+curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh \
+  | sh -s -- TextEdit "Google Chrome"
 ```
 
 To disable all mutations and retain observation tools only:
 
 ```bash
-./setup.sh --observation-only
+curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh \
+  | sh -s -- --observation-only
 ```
+
+Rerun the same command to update an existing installation. Set
+`OCCU_INSTALL_DIR` or `OCCU_REF` before the command to override the install
+directory or pin a branch, tag, or commit. For a local source checkout, run
+`./setup.sh` directly.
 
 The installer is idempotent and configures Occu globally, so OpenCode can be
 started from any project:
