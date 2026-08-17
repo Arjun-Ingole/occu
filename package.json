@@ -19,7 +19,8 @@
     "policy": "bun dist/src/policy-cli.js",
     "start": "bun dist/src/cli.js",
     "test": "vitest run --dir test",
-    "test:backend": "bun run build && bun scripts/backend-smoke.mjs"
+    "test:backend": "bun run build && bun scripts/backend-smoke.mjs",
+    "test:live": "bun run build && bun scripts/live-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

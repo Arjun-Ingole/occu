@@ -111,8 +111,20 @@ before it. The observation is invalidated after one mutation attempt.
 
 ```bash
 bun run check
+bun run test:backend
 bun audit
 ```
+
+On a Mac with Screen Recording and Accessibility granted, run the complete live
+tool matrix with:
+
+```bash
+bun run test:live
+```
+
+This compiles a temporary AppKit fixture, calls all ten public tools through the
+stdio MCP boundary, verifies every mutation through a fresh observation, and
+removes the fixture afterward. It does not interact with personal app data.
 
 `OCCU_BACKEND_COMMAND` and JSON-array `OCCU_BACKEND_ARGS` can point the facade at
 another stdio MCP backend for integration tests. The replacement must provide

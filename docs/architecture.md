@@ -45,7 +45,8 @@ OpenCode
   v
 Occu (Bun facade)
   | policy.json + STOPPED
-  | stdio MCP: native Peekaboo tools
+  | stdio MCP: observation/background tools
+  | trusted local CLI: foreground-approved action + drag
   v
 Peekaboo 4.2.0 (signed universal macOS executable)
   | ScreenCaptureKit + Accessibility + native input
@@ -55,10 +56,19 @@ Target macOS application
 
 The facade fetches Peekaboo's tool schemas at runtime, verifies every required
 backend tool exists, renames only the supported subset, and passes MCP text,
-image, metadata, and structured content through without conversion. The pinned
-backend provides snapshot receipts, freshness checks, and background-first input
-delivery. Occu assigns the backend a private daemon socket under its policy
-directory rather than sharing Peekaboo's ambient Bridge socket.
+image, metadata, and structured content through. The pinned backend provides
+snapshot receipts, freshness checks, and background-first input delivery. Its MCP
+server intentionally refuses foreground operations, so Occu invokes `action` and
+`drag` through the same signed executable's local CLI after OpenCode approval and
+Occu policy authorization. This is required for actions such as `AXPress`, while
+`--no-remote` keeps snapshot resolution in the same local trust boundary.
+
+Peekaboo can report a background mutation as an MCP error after dispatch when it
+cannot independently verify the effect. Occu preserves the outcome metadata but
+returns a non-error, non-retryable result instructing the caller to observe again.
+This prevents an agent from repeating an action that may already have occurred.
+Occu assigns the MCP backend a private daemon socket under its policy directory
+rather than sharing Peekaboo's ambient Bridge socket.
 
 ## Safety model
 
