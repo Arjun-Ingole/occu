@@ -23,7 +23,9 @@ export async function startOccuServer(
     {
       capabilities: { tools: {} },
       instructions:
-        "Observe with get_app_state before acting. Prefer snapshot element IDs over screen coordinates."
+        "Observe with get_app_state before acting. Prefer snapshot element IDs over screen coordinates. " +
+        "If an editor is visible but omitted from an incomplete accessibility tree, click a grounded " +
+        "document coordinate, observe again, then type with the fresh snapshot."
     }
   );
 
@@ -43,4 +45,3 @@ export async function startOccuServer(
     }
   };
 }
-

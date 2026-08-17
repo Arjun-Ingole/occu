@@ -25,7 +25,8 @@ const TOOL_DESCRIPTIONS: Partial<Record<PublicToolName, string>> = {
     "Observe a macOS application. Returns its screenshot, accessibility tree, and a snapshot ID for grounded actions.",
   permission_status:
     "Report Screen Recording, Accessibility, and event-synthesis permissions.",
-  type_text: "Type text into the selected macOS control.",
+  type_text:
+    "Type text into the selected macOS control. Snapshot-bound calls may include redundant app or window context; Occu normalizes it safely.",
   press_key: "Press a key or keyboard shortcut in a macOS application.",
   perform_action:
     "Perform an accessibility action such as press, increment, decrement, or confirm."
