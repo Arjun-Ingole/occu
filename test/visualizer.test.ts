@@ -31,7 +31,7 @@ describe("software cursor visualizer", () => {
     const event = createClickEvent(
       { x: 120, y: 210 },
       982,
-      { button: "right" },
+      { right: true },
       "event-id",
       "2026-08-17T00:00:00.000Z"
     );

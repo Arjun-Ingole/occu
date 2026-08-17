@@ -1,39 +1,27 @@
 import { constants } from "node:fs";
-import { execFile } from "node:child_process";
 import { access, mkdir, rename, unlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import { postVisualizerNotification } from "../dist/src/macos-notification.js";
-
-const execFileAsync = promisify(execFile);
+import {
+  createMovementEvent,
+  defaultVisualizerEventDirectory
+} from "../dist/src/visualizer.js";
 
 if (process.platform !== "darwin") {
   throw new Error("The visualizer smoke test only runs on macOS");
 }
 
-const eventDirectory = process.env.OCCU_VISUALIZER_EVENT_DIR ?? join(
-  homedir(),
-  "Library",
-  "Application Support",
-  "PeekabooShared",
-  "VisualizerEvents"
-);
+const eventDirectory = defaultVisualizerEventDirectory();
 const id = crypto.randomUUID();
 const finalPath = join(eventDirectory, `${id}.json`);
 const temporaryPath = `${finalPath}.${process.pid}.tmp`;
-const event = {
-  id,
-  createdAt: new Date().toISOString(),
-  payload: {
-    mouseMovement: {
-      duration: 0.8,
-      from: [560, 440],
-      to: [760, 540]
-    }
-  }
-};
+const event = createMovementEvent(
+  { x: 560, y: 440 },
+  { x: 760, y: 540 },
+  0.8,
+  id
+);
 
 await mkdir(eventDirectory, { recursive: true, mode: 0o700 });
 await writeFile(temporaryPath, `${JSON.stringify(event)}\n`, {
@@ -42,11 +30,6 @@ await writeFile(temporaryPath, `${JSON.stringify(event)}\n`, {
 });
 await rename(temporaryPath, finalPath);
 postVisualizerNotification(`${id}|mouseMovement`);
-
-if (process.env.OCCU_VISUALIZER_SCREENSHOT) {
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  await execFileAsync("screencapture", ["-x", process.env.OCCU_VISUALIZER_SCREENSHOT]);
-}
 
 const deadline = Date.now() + 5_000;
 while (Date.now() < deadline && await pathExists(finalPath)) {

@@ -8,17 +8,14 @@
   "engines": {
     "bun": ">=1.3.14"
   },
-  "bin": {
-    "occu": "dist/src/policy-cli.js",
-    "occu-mcp": "dist/src/cli.js"
-  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "check": "bun run build && bun run test",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "bun run typecheck && bun run test",
     "permissions": "peekaboo permissions",
     "policy": "bun dist/src/policy-cli.js",
     "start": "bun dist/src/cli.js",
-    "test": "vitest run --dir test",
+    "test": "bun run build && vitest run --dir test",
     "test:backend": "bun run build && bun scripts/backend-smoke.mjs",
     "test:live": "bun run build && bun scripts/live-smoke.mjs",
     "test:visualizer": "bun run build && bun scripts/visualizer-smoke.mjs"

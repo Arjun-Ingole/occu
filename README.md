@@ -1,8 +1,8 @@
 # Occu
 
-Occu is a macOS-only computer-use MCP server for OpenCode. It exposes a compact,
-Codex-style tool surface and delegates native screen capture and UI automation to
-the signed Peekaboo 4.2.0 engine.
+Occu is a macOS computer-use MCP server for OpenCode. It provides screenshots,
+accessibility snapshots, grounded UI actions, and a software cursor through the
+signed Peekaboo 4.2.0 engine.
 
 ## Requirements
 
@@ -10,138 +10,104 @@ the signed Peekaboo 4.2.0 engine.
 - Bun 1.3.14 or later
 - OpenCode 1.17.18 or later
 
-The bundled Peekaboo executable supports Apple Silicon and Intel Macs.
-
-## Setup
-
-Install Occu globally for OpenCode with one command:
+## Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh | sh
 ```
 
-The bootstrap downloads Occu to `~/.local/share/occu` and then installs
-dependencies, builds the server, installs and verifies the signed software-cursor
-companion, safely merges the global OpenCode configuration,
-creates a backup of an existing configuration, allows mutations in every explicitly
-observed app, checks the native backend, and requests missing macOS permissions.
-Approve any request in System Settings, restart OpenCode, then run:
+The installer places Occu at `~/.local/share/occu`, installs the verified cursor
+companion at `~/.local/share/occu-companion`, builds the server, updates the global
+OpenCode configuration, checks the native backend, and requests missing macOS
+permissions. Restart OpenCode after installation, then verify the connection:
 
 ```bash
 opencode mcp list
 ```
 
-To restrict mutations to specific apps, pass their names:
+The installer is idempotent. Run the same command to update Occu.
+
+All `computer_use_*` tools are allowed in OpenCode by default. Occu still requires
+a current observation and checks its local mutation policy before every action.
+
+## Install Options
+
+Restrict mutations to named applications:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh \
   | sh -s -- TextEdit "Google Chrome"
 ```
 
-To disable all mutations and retain observation tools only:
+Disable mutations:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Arjun-Ingole/occu/main/install.sh \
   | sh -s -- --observation-only
 ```
 
-Rerun the same command to update an existing installation. Set
-`OCCU_INSTALL_DIR` or `OCCU_REF` before the command to override the install
-directory or pin a branch, tag, or commit. For a local source checkout, run
-`./setup.sh` directly.
+Set `OCCU_REF` to install a branch, tag, or commit. Set `OCCU_INSTALL_DIR` to use a
+different installation directory. Run `./setup.sh --help` for local setup options.
 
-The installer is idempotent and configures Occu globally, so OpenCode can be
-started from any project:
+## Policy
 
-```bash
-cd ~/projects/my-project
-opencode .
-```
-
-Run `./setup.sh --help` for noninteractive permission and config-path options.
-The checked-in `opencode.json` also supports project-local development. All Occu
-tools run without an OpenCode prompt by default, while mutations must still pass
-Occu's local observation and app policy.
-
-## Safety controls
-
-Stop mutations immediately, including from already-running OpenCode sessions:
+The default policy allows mutations in any app that was explicitly observed. Stop
+or resume mutations from the default installation with:
 
 ```bash
-bun run policy -- stop
+bun ~/.local/share/occu/dist/src/policy-cli.js stop
+bun ~/.local/share/occu/dist/src/policy-cli.js resume
 ```
 
-Observation remains available while stopped. Resume and manage the allowlist
-with:
+Replace wildcard access with a named allowlist:
 
 ```bash
-bun run policy -- resume
-bun run policy -- deny TextEdit
-bun run policy -- list
+bun ~/.local/share/occu/dist/src/policy-cli.js deny "*"
+bun ~/.local/share/occu/dist/src/policy-cli.js allow TextEdit
+bun ~/.local/share/occu/dist/src/policy-cli.js list
 ```
 
-Policy is stored in `~/.config/occu/policy.json`. Set `OCCU_POLICY_DIR` to use a
-different directory, or `OCCU_ALLOWED_APPS` to add a comma-separated ephemeral
-allowlist. `OCCU_ALLOWED_APPS=*` allows every explicitly observed app and should
-be treated like the installer's default wildcard mode. Use named app arguments or
-`--observation-only` when a narrower policy is required.
+Policy state is stored in `~/.config/occu`. `OCCU_POLICY_DIR` changes that location.
+`OCCU_ALLOWED_APPS` adds a comma-separated allowlist for the current server process.
 
-Peekaboo is bundled inside Occu and does not need to be installed in `PATH`.
-Occu uses its own daemon socket under the policy directory so other Peekaboo
-installations and older Bridge processes cannot interfere with screen capture.
+## Software Cursor
 
-Targeted background mutations also produce a separate software cursor without
-moving the hardware pointer. Setup installs the pinned, notarized Peekaboo menu-bar
-companion under `~/.local/share/occu-companion`, enables its visualizer and agent
-cursor, launches it in unattended background-host mode, and verifies event delivery.
-It is not copied to `/Applications` and has no Dock presence or normal app windows.
-Pass `--skip-visualizer` only where that feedback is intentionally not wanted.
+Grounded actions display a separate software cursor without moving the hardware
+pointer. The companion runs in background-host mode with no Dock icon or normal app
+windows. Use `--skip-visualizer` during setup to disable this feature.
 
 ## Tools
 
-| OpenCode tool | Purpose | OpenCode default |
-| --- | --- | --- |
-| `computer_use_list_apps` | List running apps | allow |
-| `computer_use_get_app_state` | Screenshot and accessibility snapshot | allow |
-| `computer_use_permission_status` | Check macOS permissions | allow |
-| `computer_use_click` | Click an element or grounded coordinate | allow |
-| `computer_use_drag` | Drag between grounded targets | allow |
-| `computer_use_perform_action` | Run an accessibility action | allow |
-| `computer_use_press_key` | Press a key or shortcut | allow |
-| `computer_use_scroll` | Scroll a target | allow |
-| `computer_use_set_value` | Set a control's value | allow |
-| `computer_use_type_text` | Type text into a control | allow |
+| Tool | Purpose |
+| --- | --- |
+| `computer_use_list_apps` | List running applications |
+| `computer_use_get_app_state` | Capture a screenshot and accessibility snapshot |
+| `computer_use_permission_status` | Check required macOS permissions |
+| `computer_use_click` | Click an observed element, query, or coordinate |
+| `computer_use_drag` | Drag between grounded targets |
+| `computer_use_perform_action` | Run an accessibility action |
+| `computer_use_press_key` | Press a key or shortcut |
+| `computer_use_scroll` | Scroll an observed element |
+| `computer_use_set_value` | Set an accessibility value |
+| `computer_use_type_text` | Type into an observed control |
 
-Every mutation requires a successful, named `get_app_state` observation just
-before it. The observation is invalidated after a dispatched or indeterminate
-mutation. A backend refusal explicitly marked safe to retry retains it, so callers
-can correct invalid arguments without another capture. Snapshot-bound typing also
-accepts redundant app or window context; Occu uses that context for policy checks
-and sends the backend only its canonical snapshot target.
+Call `computer_use_get_app_state` with an explicit app before each mutation. Use
+element IDs from that observation when available. Otherwise use coordinates from
+the current screenshot. Observe again after every mutation.
 
 ## Development
 
 ```bash
+bun install --frozen-lockfile
 bun run check
 bun run test:backend
 bun run test:visualizer
+bun run test:live
 bun audit
 ```
 
-On a Mac with Screen Recording and Accessibility granted, run the complete live
-tool matrix with:
+`bun run check` typechecks the source, scripts, and tests, builds the production
+server, and runs the automated test suite. `test:live` compiles a temporary AppKit
+fixture and verifies all ten MCP tools without using personal app data.
 
-```bash
-bun run test:live
-```
-
-This compiles a temporary AppKit fixture, calls all ten public tools through the
-stdio MCP boundary, verifies every mutation through a fresh observation, and
-removes the fixture afterward. It does not interact with personal app data.
-
-`OCCU_BACKEND_COMMAND` and JSON-array `OCCU_BACKEND_ARGS` can point the facade at
-another stdio MCP backend for integration tests. The replacement must provide
-the pinned Peekaboo tool contract.
-
-The researched design and security boundaries are documented in
-[`docs/architecture.md`](docs/architecture.md).
+`OCCU_BACKEND_COMMAND` and `OCCU_BACKEND_ARGS` are available for integration tests.

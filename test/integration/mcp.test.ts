@@ -26,10 +26,9 @@ describe("stdio MCP integration", () => {
 
     const fakeBackendPath = join(
       process.cwd(),
-      "dist",
       "test",
       "fixtures",
-      "fake-backend.js"
+      "fake-backend.mjs"
     );
     const transport = new StdioClientTransport({
       command: process.execPath,

@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   await requireCommand("opencode");
 
   console.log("Building Occu...");
-  await runChecked(process.execPath, ["run", "build"], projectDirectory);
+  await runChecked(process.execPath, ["run", "build"]);
 
   if (!options.skipVisualizer) {
     const companionPath = await ensureVisualizerCompanion();
@@ -92,14 +92,14 @@ async function main(): Promise<void> {
   );
 
   console.log("Verifying native backend contract...");
-  await runChecked(process.execPath, ["scripts/backend-smoke.mjs"], projectDirectory);
+  await runChecked(process.execPath, ["scripts/backend-smoke.mjs"]);
 
   if (!options.skipPermissions) {
     await checkPermissions();
   }
 
   if (!options.skipOpenCodeCheck) {
-    const result = await run("opencode", ["mcp", "list"], projectDirectory);
+    const result = await run("opencode", ["mcp", "list"]);
     if (result.exitCode === 0) {
       process.stdout.write(result.stdout);
     } else {
@@ -153,7 +153,7 @@ async function checkPermissions(): Promise<void> {
     "peekaboo",
     "peekaboo"
   );
-  const result = await run(peekaboo, ["permissions", "status", "--json"], projectDirectory);
+  const result = await run(peekaboo, ["permissions", "status", "--json"]);
   if (result.exitCode !== 0) {
     console.warn("Could not inspect macOS permissions. Run `bun run permissions` manually.");
     return;
@@ -174,7 +174,7 @@ async function checkPermissions(): Promise<void> {
       continue;
     }
     console.log(`Requesting ${permission.name} permission...`);
-    await runInherited(peekaboo, ["permissions", "request", kind], projectDirectory);
+    await runInherited(peekaboo, ["permissions", "request", kind]);
   }
   console.log(
     "Approve requested permissions in System Settings > Privacy & Security, then restart OpenCode."
@@ -202,10 +202,7 @@ function parseArguments(arguments_: string[]): SetupOptions {
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === "--help" || argument === "-h") {
-      printUsage();
-      process.exit(0);
-    } else if (argument === "--config") {
+    if (argument === "--config") {
       const value = arguments_[index + 1];
       if (!value) {
         throw new Error("--config requires a path");
@@ -249,21 +246,6 @@ function defaultOpenCodeConfigPath(): string {
   return join(configHome, "opencode", "opencode.json");
 }
 
-function printUsage(): void {
-  console.log(`Usage: ./setup.sh [options] [APP ...]
-
-Installs Occu globally as an OpenCode MCP server. With no app arguments, all
-explicitly observed apps are allowed. App arguments restrict mutations to those apps.
-
-Options:
-  --config PATH             Override the OpenCode config path
-  --observation-only        Clear the allowlist and disable mutations
-  --skip-permissions        Do not inspect or request macOS permissions
-  --skip-opencode-check     Do not run opencode mcp list
-  --skip-visualizer         Do not install or launch the software cursor companion
-  -h, --help                Show this help`);
-}
-
 async function ensureVisualizerCompanion(): Promise<string> {
   await requireMacOS15();
   const companionPath = process.env.OCCU_COMPANION_PATH
@@ -285,8 +267,7 @@ async function ensureVisualizerCompanion(): Promise<string> {
   try {
     await runChecked(
       "curl",
-      ["-fsSL", "--retry", "3", COMPANION_URL, "-o", archivePath],
-      projectDirectory
+      ["-fsSL", "--retry", "3", COMPANION_URL, "-o", archivePath]
     );
     const digest = await sha256(archivePath);
     if (digest !== COMPANION_SHA256) {
@@ -294,7 +275,7 @@ async function ensureVisualizerCompanion(): Promise<string> {
         `Peekaboo archive checksum mismatch: expected ${COMPANION_SHA256}, received ${digest}`
       );
     }
-    await runChecked("ditto", ["-x", "-k", archivePath, temporaryDirectory], projectDirectory);
+    await runChecked("ditto", ["-x", "-k", archivePath, temporaryDirectory]);
     if (!(await isValidCompanion(extractedPath))) {
       throw new Error("Downloaded Peekaboo app failed signature or identity verification");
     }
@@ -326,35 +307,48 @@ async function isValidCompanion(appPath: string): Promise<boolean> {
     return false;
   }
   const checks = await Promise.all([
-    run("plutil", ["-extract", "CFBundleIdentifier", "raw", "-o", "-", join(appPath, "Contents", "Info.plist")], projectDirectory),
-    run("plutil", ["-extract", "CFBundleShortVersionString", "raw", "-o", "-", join(appPath, "Contents", "Info.plist")], projectDirectory),
-    run("codesign", ["--verify", "--deep", "--strict", appPath], projectDirectory),
-    run("codesign", ["-dv", "--verbose=4", appPath], projectDirectory),
-    run("spctl", ["--assess", "--type", "execute", appPath], projectDirectory)
+    readPlistValue(appPath, "CFBundleIdentifier"),
+    readPlistValue(appPath, "CFBundleShortVersionString"),
+    run("codesign", ["--verify", "--deep", "--strict", appPath]),
+    run("codesign", ["-dv", "--verbose=4", appPath]),
+    run("spctl", ["--assess", "--type", "execute", appPath])
   ]);
   const [bundle, version, signature, details, gatekeeper] = checks;
-  return bundle?.exitCode === 0 && bundle.stdout.trim() === COMPANION_BUNDLE_ID &&
-    version?.exitCode === 0 && version.stdout.trim() === COMPANION_VERSION &&
-    signature?.exitCode === 0 && gatekeeper?.exitCode === 0 &&
+  return (
+    bundle?.exitCode === 0 &&
+    bundle.stdout.trim() === COMPANION_BUNDLE_ID &&
+    version?.exitCode === 0 &&
+    version.stdout.trim() === COMPANION_VERSION &&
+    signature?.exitCode === 0 &&
+    gatekeeper?.exitCode === 0 &&
     details?.exitCode === 0 &&
-    details.stderr.includes(`TeamIdentifier=${COMPANION_TEAM_ID}`);
+    details.stderr.includes(`TeamIdentifier=${COMPANION_TEAM_ID}`)
+  );
+}
+
+function readPlistValue(appPath: string, key: string): Promise<CommandResult> {
+  return run("plutil", [
+    "-extract",
+    key,
+    "raw",
+    "-o",
+    "-",
+    join(appPath, "Contents", "Info.plist")
+  ]);
 }
 
 async function enableVisualizer(companionPath: string): Promise<void> {
   await runChecked(
     "defaults",
-    ["write", COMPANION_BUNDLE_ID, "peekaboo.visualizerEnabled", "-bool", "true"],
-    projectDirectory
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.visualizerEnabled", "-bool", "true"]
   );
   await runChecked(
     "defaults",
-    ["write", COMPANION_BUNDLE_ID, "peekaboo.agentCursorEnabled", "-bool", "true"],
-    projectDirectory
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.agentCursorEnabled", "-bool", "true"]
   );
   await runChecked(
     "defaults",
-    ["write", COMPANION_BUNDLE_ID, "peekaboo.showInDock", "-bool", "false"],
-    projectDirectory
+    ["write", COMPANION_BUNDLE_ID, "peekaboo.showInDock", "-bool", "false"]
   );
   const executable = join(companionPath, "Contents", "MacOS", "Peekaboo");
   if (!(await isProcessRunning(executable))) {
@@ -364,11 +358,11 @@ async function enableVisualizer(companionPath: string): Promise<void> {
     });
     companion.unref();
   }
-  await runChecked(process.execPath, ["scripts/visualizer-smoke.mjs"], projectDirectory);
+  await runChecked(process.execPath, ["scripts/visualizer-smoke.mjs"]);
 }
 
 async function isProcessRunning(executable: string): Promise<boolean> {
-  const result = await run("ps", ["-axo", "command="], projectDirectory);
+  const result = await run("ps", ["-axo", "command="]);
   if (result.exitCode !== 0) {
     return false;
   }
@@ -378,7 +372,7 @@ async function isProcessRunning(executable: string): Promise<boolean> {
 }
 
 async function requireMacOS15(): Promise<void> {
-  const result = await run("sw_vers", ["-productVersion"], projectDirectory);
+  const result = await run("sw_vers", ["-productVersion"]);
   const major = Number.parseInt(result.stdout.split(".")[0] ?? "", 10);
   if (result.exitCode !== 0 || !Number.isFinite(major) || major < 15) {
     throw new Error("The software cursor companion requires macOS 15 or later");
@@ -396,11 +390,7 @@ async function pathExists(path: string): Promise<boolean> {
     await access(path, constants.F_OK);
     return true;
   } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      (error as NodeJS.ErrnoException).code === "ENOENT"
-    ) {
+    if (isMissingFile(error)) {
       return false;
     }
     throw error;
@@ -408,7 +398,7 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function requireCommand(command: string): Promise<void> {
-  const result = await run(command, ["--version"], projectDirectory);
+  const result = await run(command, ["--version"]);
   if (result.exitCode !== 0) {
     throw new Error(`${command} is required but was not found in PATH`);
   }
@@ -416,10 +406,9 @@ async function requireCommand(command: string): Promise<void> {
 
 async function runChecked(
   command: string,
-  arguments_: string[],
-  cwd: string
+  arguments_: string[]
 ): Promise<void> {
-  const exitCode = await runInherited(command, arguments_, cwd);
+  const exitCode = await runInherited(command, arguments_);
   if (exitCode !== 0) {
     throw new Error(`Command failed (${exitCode}): ${command} ${arguments_.join(" ")}`);
   }
@@ -427,11 +416,13 @@ async function runChecked(
 
 async function runInherited(
   command: string,
-  arguments_: string[],
-  cwd: string
+  arguments_: string[]
 ): Promise<number> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, arguments_, { cwd, stdio: "inherit" });
+    const child = spawn(command, arguments_, {
+      cwd: projectDirectory,
+      stdio: "inherit"
+    });
     child.once("error", reject);
     child.once("exit", (code) => resolvePromise(code ?? 1));
   });
@@ -439,11 +430,13 @@ async function runInherited(
 
 async function run(
   command: string,
-  arguments_: string[],
-  cwd: string
+  arguments_: string[]
 ): Promise<CommandResult> {
   return new Promise((resolvePromise) => {
-    const child = spawn(command, arguments_, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, arguments_, {
+      cwd: projectDirectory,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");
@@ -468,15 +461,19 @@ async function readOptionalFile(path: string): Promise<string | undefined> {
     await access(path, constants.F_OK);
     return await readFile(path, "utf8");
   } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      (error as NodeJS.ErrnoException).code === "ENOENT"
-    ) {
+    if (isMissingFile(error)) {
       return undefined;
     }
     throw error;
   }
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
 
 main().catch((error: unknown) => {

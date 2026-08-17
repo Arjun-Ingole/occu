@@ -42,10 +42,8 @@ export function resolveBackendCommand(
     };
   }
 
-  const require = createRequire(import.meta.url);
-  const packagePath = require.resolve("@steipete/peekaboo/package.json");
   return {
-    command: join(dirname(packagePath), "peekaboo"),
+    command: resolvePeekabooCommand(),
     args: ["mcp", "serve"]
   };
 }
@@ -220,9 +218,7 @@ export function cliEnvelopeToToolResult(
       content: [
         {
           type: "text",
-          text:
-            `Peekaboo ${operation} dispatched successfully. ` +
-            "Observe the target before continuing."
+          text: `${operation} dispatched. Observe the target before continuing.`
         }
       ],
       ...(isRecord(value.data) ? { structuredContent: value.data } : {})

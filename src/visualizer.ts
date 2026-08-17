@@ -69,7 +69,7 @@ export class OccuVisualizer implements MutationVisualizer {
   #lastPoint: Point | undefined;
 
   constructor(options: OccuVisualizerOptions = {}) {
-    this.#eventDirectory = options.eventDirectory ?? defaultEventDirectory();
+    this.#eventDirectory = options.eventDirectory ?? defaultVisualizerEventDirectory();
     this.#displayHeight = options.displayHeight ?? primaryDisplayHeight;
     this.#notify = options.notify ?? notifyVisualizer;
     this.#animationDuration = options.animationDuration ?? 0.45;
@@ -221,20 +221,11 @@ function mutationPoint(
     if (element) {
       return element;
     }
-    const coordinate = parseCoordinate(on);
-    if (coordinate) {
-      return coordinate;
-    }
   }
 
-  for (const key of ["coords", "at", "position"]) {
-    const value = arguments_[key];
-    if (typeof value === "string") {
-      const coordinate = parseCoordinate(value);
-      if (coordinate) {
-        return coordinate;
-      }
-    }
+  const coords = arguments_.coords;
+  if (typeof coords === "string") {
+    return parseCoordinate(coords);
   }
   return undefined;
 }
@@ -250,10 +241,10 @@ function parseCoordinate(value: string): Point | undefined {
 function clickType(
   arguments_: Record<string, unknown>
 ): "single" | "double" | "right" {
-  if (arguments_.button === "right") {
+  if (arguments_.right === true) {
     return "right";
   }
-  if (arguments_.double === true || arguments_.clicks === 2 || arguments_.count === 2) {
+  if (arguments_.double === true) {
     return "double";
   }
   return "single";
@@ -282,7 +273,7 @@ async function primaryDisplayHeight(): Promise<number> {
   return height;
 }
 
-function defaultEventDirectory(): string {
+export function defaultVisualizerEventDirectory(): string {
   return join(
     homedir(),
     "Library",

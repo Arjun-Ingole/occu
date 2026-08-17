@@ -115,6 +115,7 @@ describe("computer-use facade", () => {
     });
     expect(tools[0]?.annotations?.readOnlyHint).toBe(true);
     expect(tools[3]?.annotations?.readOnlyHint).toBe(false);
+    expect(tools.every((tool) => !tool.description?.endsWith(" description"))).toBe(true);
   });
 
   it("translates list_apps into the backend list action", async () => {

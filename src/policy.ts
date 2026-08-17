@@ -140,7 +140,7 @@ export class LocalMutationPolicy implements MutationPolicy {
   async authorizeMutation(explicitApp?: string): Promise<void> {
     const state = await this.store.read();
     if (state.stopped) {
-      throw new Error("Computer-use mutations are stopped. Run `occu resume` to re-enable them.");
+      throw new Error("Computer-use mutations are stopped by local policy.");
     }
 
     const target = normalizeOptionalApp(explicitApp) ?? this.#observedApp;
@@ -155,9 +155,7 @@ export class LocalMutationPolicy implements MutationPolicy {
       );
     }
     if (!isAllowed(target, state.allowedApps)) {
-      throw new Error(
-        `Mutations for ${target} are not allowed. Run \`occu allow ${quoteArgument(target)}\` first.`
-      );
+      throw new Error(`Mutations for ${target} are not allowed by local policy.`);
     }
   }
 
@@ -216,10 +214,6 @@ function requireApp(app: string): string {
     throw new Error("Application name cannot be empty");
   }
   return normalized;
-}
-
-function quoteArgument(value: string): string {
-  return JSON.stringify(value);
 }
 
 async function fileExists(path: string): Promise<boolean> {

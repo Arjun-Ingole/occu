@@ -19,17 +19,19 @@ const EMPTY_OBJECT_SCHEMA: Tool["inputSchema"] = {
   additionalProperties: false
 };
 
-const TOOL_DESCRIPTIONS: Partial<Record<PublicToolName, string>> = {
+const TOOL_DESCRIPTIONS: Record<PublicToolName, string> = {
   list_apps: "List running macOS applications and their process identifiers.",
   get_app_state:
     "Observe a macOS application. Returns its screenshot, accessibility tree, and a snapshot ID for grounded actions.",
   permission_status:
     "Report Screen Recording, Accessibility, and event-synthesis permissions.",
-  type_text:
-    "Type text into the selected macOS control. Snapshot-bound calls may include redundant app or window context; Occu normalizes it safely.",
+  click: "Click an element, query, or coordinate from the current observation.",
+  drag: "Drag between grounded elements or coordinates.",
+  perform_action: "Run an accessibility action on an observed element.",
   press_key: "Press a key or keyboard shortcut in a macOS application.",
-  perform_action:
-    "Perform an accessibility action such as press, increment, decrement, or confirm."
+  scroll: "Scroll an observed element in the requested direction.",
+  set_value: "Set the value of an observed accessibility element.",
+  type_text: "Type text into an observed macOS control."
 };
 
 export class ComputerUseFacade {
@@ -53,7 +55,7 @@ export class ComputerUseFacade {
       return {
         ...backendTool,
         name: publicName,
-        description: TOOL_DESCRIPTIONS[publicName] ?? backendTool.description,
+        description: TOOL_DESCRIPTIONS[publicName],
         inputSchema:
           publicName === "list_apps" ? EMPTY_OBJECT_SCHEMA : backendTool.inputSchema,
         annotations: {

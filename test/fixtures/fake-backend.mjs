@@ -4,8 +4,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type Tool
+  ListToolsRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 
 const names = [
@@ -21,7 +20,7 @@ const names = [
   "type"
 ];
 
-const tools: Tool[] = names.map((name) => ({
+const tools = names.map((name) => ({
   name,
   description: `Fake ${name} tool`,
   inputSchema: {
@@ -48,22 +47,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
+  const response = {
+    name: request.params.name,
+    arguments: request.params.arguments ?? {}
+  };
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({
-          name: request.params.name,
-          arguments: request.params.arguments ?? {}
-        })
-      }
-    ],
-    structuredContent: {
-      name: request.params.name,
-      arguments: request.params.arguments ?? {}
-    }
+    content: [{ type: "text", text: JSON.stringify(response) }],
+    structuredContent: response
   };
 });
 
 await server.connect(new StdioServerTransport());
-
