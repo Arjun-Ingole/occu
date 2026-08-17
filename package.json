@@ -17,7 +17,8 @@
     "permissions": "peekaboo permissions",
     "policy": "node dist/src/policy-cli.js",
     "start": "node dist/src/cli.js",
-    "test": "vitest run --dir test"
+    "test": "vitest run --dir test",
+    "test:backend": "npm run build && node scripts/backend-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
