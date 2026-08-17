@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { chmod, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -11,6 +12,8 @@ import type {
   Tool
 } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+
+import { defaultPolicyDirectory } from "./policy.js";
 
 export interface ComputerUseBackend {
   connect(): Promise<void>;
@@ -60,12 +63,18 @@ export class PeekabooBackend implements ComputerUseBackend {
     { capabilities: {} }
   );
   readonly #transport: StdioClientTransport;
+  readonly #daemonDirectory: string;
 
-  constructor(command: BackendCommand = resolveBackendCommand()) {
+  constructor(
+    command: BackendCommand = resolveBackendCommand(),
+    environment: NodeJS.ProcessEnv = process.env
+  ) {
+    const backendEnvironment = resolveBackendEnvironment(environment);
+    this.#daemonDirectory = dirname(backendEnvironment.PEEKABOO_DAEMON_SOCKET);
     const parameters: StdioServerParameters = {
       command: command.command,
       args: command.args,
-      env: process.env as Record<string, string>,
+      env: backendEnvironment,
       stderr: "inherit",
       maxBufferSize: 50 * 1024 * 1024
     };
@@ -73,6 +82,8 @@ export class PeekabooBackend implements ComputerUseBackend {
   }
 
   async connect(): Promise<void> {
+    await mkdir(this.#daemonDirectory, { recursive: true, mode: 0o700 });
+    await chmod(this.#daemonDirectory, 0o700);
     await this.#client.connect(this.#transport);
   }
 
@@ -95,4 +106,20 @@ export class PeekabooBackend implements ComputerUseBackend {
   async close(): Promise<void> {
     await this.#client.close();
   }
+}
+
+export function resolveBackendEnvironment(
+  environment: NodeJS.ProcessEnv = process.env
+): Record<string, string> & { PEEKABOO_DAEMON_SOCKET: string } {
+  const inherited = Object.fromEntries(
+    Object.entries(environment).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
+  const socketPath = environment.OCCU_PEEKABOO_DAEMON_SOCKET
+    ?? join(defaultPolicyDirectory(environment), "peekaboo-daemon.sock");
+  return {
+    ...inherited,
+    PEEKABOO_DAEMON_SOCKET: socketPath
+  };
 }

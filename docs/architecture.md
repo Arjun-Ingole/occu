@@ -57,7 +57,8 @@ The facade fetches Peekaboo's tool schemas at runtime, verifies every required
 backend tool exists, renames only the supported subset, and passes MCP text,
 image, metadata, and structured content through without conversion. The pinned
 backend provides snapshot receipts, freshness checks, and background-first input
-delivery.
+delivery. Occu assigns the backend a private daemon socket under its policy
+directory rather than sharing Peekaboo's ambient Bridge socket.
 
 ## Safety model
 

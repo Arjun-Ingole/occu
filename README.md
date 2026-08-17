@@ -85,6 +85,10 @@ allowlist. `OCCU_ALLOWED_APPS=*` allows every explicitly observed app and should
 be treated like the installer's default wildcard mode. Use named app arguments or
 `--observation-only` when a narrower policy is required.
 
+Peekaboo is bundled inside Occu and does not need to be installed in `PATH`.
+Occu uses its own daemon socket under the policy directory so other Peekaboo
+installations and older Bridge processes cannot interfere with screen capture.
+
 ## Tools
 
 | OpenCode tool | Purpose | OpenCode default |
