@@ -11,6 +11,7 @@ import {
   type PublicToolName
 } from "./contracts.js";
 import { LocalMutationPolicy, type MutationPolicy } from "./policy.js";
+import { OccuVisualizer, type MutationVisualizer } from "./visualizer.js";
 
 const EMPTY_OBJECT_SCHEMA: Tool["inputSchema"] = {
   type: "object",
@@ -33,7 +34,8 @@ const TOOL_DESCRIPTIONS: Partial<Record<PublicToolName, string>> = {
 export class ComputerUseFacade {
   constructor(
     private readonly backend: ComputerUseBackend,
-    private readonly policy: MutationPolicy = new LocalMutationPolicy()
+    private readonly policy: MutationPolicy = new LocalMutationPolicy(),
+    private readonly visualizer: MutationVisualizer = new OccuVisualizer()
   ) {}
 
   async listTools(): Promise<Tool[]> {
@@ -74,6 +76,7 @@ export class ComputerUseFacade {
       const explicitApp = typeof arguments_.app === "string" ? arguments_.app : undefined;
       try {
         await this.policy.authorizeMutation(explicitApp);
+        await this.visualizer.previewMutation(name, arguments_);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return errorResult(message);
@@ -84,6 +87,7 @@ export class ComputerUseFacade {
       name === "list_apps" ? { action: "list" } : arguments_;
     if (name === "get_app_state") {
       this.policy.recordObservation(undefined);
+      this.visualizer.recordObservation(undefined);
     }
 
     let result: CallToolResult;
@@ -100,6 +104,7 @@ export class ComputerUseFacade {
         ? arguments_.app_target
         : undefined;
       this.policy.recordObservation(result.isError ? undefined : app);
+      this.visualizer.recordObservation(result.isError ? undefined : result);
     }
 
     return route.mutates ? normalizeDispatchedMutation(result) : result;

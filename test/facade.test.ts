@@ -10,6 +10,7 @@ import {
   normalizeDispatchedMutation
 } from "../src/facade.js";
 import type { MutationPolicy } from "../src/policy.js";
+import type { MutationVisualizer } from "../src/visualizer.js";
 
 const BACKEND_TOOL_NAMES = [
   "app",
@@ -71,6 +72,22 @@ class RecordingPolicy implements MutationPolicy {
 
   invalidateObservation(): void {
     this.invalidations += 1;
+  }
+}
+
+class RecordingVisualizer implements MutationVisualizer {
+  observations: Array<CallToolResult | undefined> = [];
+  mutations: Array<{ name: string; arguments_: Record<string, unknown> }> = [];
+
+  recordObservation(result: CallToolResult | undefined): void {
+    this.observations.push(result);
+  }
+
+  async previewMutation(
+    name: Parameters<MutationVisualizer["previewMutation"]>[0],
+    arguments_: Record<string, unknown>
+  ): Promise<void> {
+    this.mutations.push({ name, arguments_ });
   }
 }
 
@@ -140,6 +157,22 @@ describe("computer-use facade", () => {
     expect(policy.authorizations).toEqual(["TextEdit"]);
     expect(policy.invalidations).toBe(1);
     expect(backend.calls[0]?.name).toBe("press");
+  });
+
+  it("records observations and previews approved mutations", async () => {
+    const backend = new RecordingBackend();
+    const policy = new RecordingPolicy();
+    const visualizer = new RecordingVisualizer();
+    const facade = new ComputerUseFacade(backend, policy, visualizer);
+
+    await facade.callTool("get_app_state", { app_target: "TextEdit" });
+    await facade.callTool("click", { on: "B1" });
+
+    expect(visualizer.observations[0]).toBeUndefined();
+    expect(visualizer.observations[1]?.content[0]).toMatchObject({ text: "ok" });
+    expect(visualizer.mutations).toEqual([
+      { name: "click", arguments_: { on: "B1" } }
+    ]);
   });
 
   it("invalidates policy context when mutation delivery is indeterminate", async () => {
