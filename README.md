@@ -113,7 +113,11 @@ Pass `--skip-visualizer` only where that feedback is intentionally not wanted.
 | `computer_use_type_text` | Type text into a control | allow |
 
 Every mutation requires a successful, named `get_app_state` observation just
-before it. The observation is invalidated after one mutation attempt.
+before it. The observation is invalidated after a dispatched or indeterminate
+mutation. A backend refusal explicitly marked safe to retry retains it, so callers
+can correct invalid arguments without another capture. Snapshot-bound typing also
+accepts redundant app or window context; Occu uses that context for policy checks
+and sends the backend only its canonical snapshot target.
 
 ## Development
 

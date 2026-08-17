@@ -85,8 +85,9 @@ rather than sharing Peekaboo's ambient Bridge socket.
 - **Named observation:** mutations require a successful `get_app_state` call with
   `app_target` immediately beforehand.
 - **App binding:** an explicit action target must match the observed app.
-- **Single use:** every mutation attempt invalidates the observation, including an
-  indeterminate transport failure.
+- **Single use after dispatch:** dispatched and indeterminate mutations invalidate
+  the observation. A refusal is reusable only when the backend explicitly reports
+  `mutation_dispatched: false` and `retry_safe: true`.
 - **Emergency stop:** `occu stop` persists a stop file checked on every mutation.
 - **Local state:** policy files use mode `0600`; their directory uses `0700`.
 - **Local enforcement:** Occu checks observation freshness, app policy, and the

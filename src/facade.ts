@@ -83,8 +83,7 @@ export class ComputerUseFacade {
       }
     }
 
-    const backendArguments =
-      name === "list_apps" ? { action: "list" } : arguments_;
+    const backendArguments = canonicalizeBackendArguments(name, arguments_);
     if (name === "get_app_state") {
       this.policy.recordObservation(undefined);
       this.visualizer.recordObservation(undefined);
@@ -93,10 +92,14 @@ export class ComputerUseFacade {
     let result: CallToolResult;
     try {
       result = await this.backend.callTool(route.backend, backendArguments);
-    } finally {
+    } catch (error: unknown) {
       if (route.mutates) {
         this.policy.invalidateObservation();
       }
+      throw error;
+    }
+    if (route.mutates && shouldInvalidateObservation(result)) {
+      this.policy.invalidateObservation();
     }
 
     if (name === "get_app_state") {
@@ -109,6 +112,37 @@ export class ComputerUseFacade {
 
     return route.mutates ? normalizeDispatchedMutation(result) : result;
   }
+}
+
+export function canonicalizeBackendArguments(
+  name: PublicToolName,
+  arguments_: Record<string, unknown>
+): Record<string, unknown> {
+  if (name === "list_apps") {
+    return { action: "list" };
+  }
+  if (
+    name !== "type_text" ||
+    typeof arguments_.snapshot !== "string" ||
+    !arguments_.snapshot.trim() ||
+    arguments_.foreground === true
+  ) {
+    return arguments_;
+  }
+
+  const canonical = { ...arguments_ };
+  for (const key of ["app", "pid", "window_id", "window_index", "window_title"]) {
+    delete canonical[key];
+  }
+  return canonical;
+}
+
+function shouldInvalidateObservation(result: CallToolResult): boolean {
+  return !(
+    result.isError === true &&
+    result._meta?.mutation_dispatched === false &&
+    result._meta?.retry_safe === true
+  );
 }
 
 export function normalizeDispatchedMutation(result: CallToolResult): CallToolResult {

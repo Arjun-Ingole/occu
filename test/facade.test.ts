@@ -159,6 +159,51 @@ describe("computer-use facade", () => {
     expect(backend.calls[0]?.name).toBe("press");
   });
 
+  it("canonicalizes snapshot-bound typing after authorizing its app", async () => {
+    const backend = new RecordingBackend();
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
+
+    await facade.callTool("type_text", {
+      app: "TextEdit",
+      clear: true,
+      snapshot: "snapshot-1",
+      text: "hello",
+      window_id: 42
+    });
+
+    expect(policy.authorizations).toEqual(["TextEdit"]);
+    expect(backend.calls).toEqual([
+      {
+        name: "type",
+        arguments_: {
+          clear: true,
+          snapshot: "snapshot-1",
+          text: "hello"
+        }
+      }
+    ]);
+  });
+
+  it("retains observation after a proven pre-dispatch refusal", async () => {
+    const backend = new RecordingBackend();
+    backend.callTool = async () => ({
+      isError: true,
+      _meta: { mutation_dispatched: false, retry_safe: true },
+      content: [{ type: "text", text: "Arguments conflict" }]
+    });
+    const policy = new RecordingPolicy();
+    const facade = new ComputerUseFacade(backend, policy);
+
+    const result = await facade.callTool("type_text", {
+      snapshot: "snapshot-1",
+      text: "hello"
+    });
+
+    expect(result.isError).toBe(true);
+    expect(policy.invalidations).toBe(0);
+  });
+
   it("records observations and previews approved mutations", async () => {
     const backend = new RecordingBackend();
     const policy = new RecordingPolicy();
