@@ -72,7 +72,7 @@ export class OccuVisualizer implements MutationVisualizer {
     this.#eventDirectory = options.eventDirectory ?? defaultEventDirectory();
     this.#displayHeight = options.displayHeight ?? primaryDisplayHeight;
     this.#notify = options.notify ?? notifyVisualizer;
-    this.#animationDuration = options.animationDuration ?? 0.18;
+    this.#animationDuration = options.animationDuration ?? 0.45;
   }
 
   recordObservation(result: CallToolResult | undefined): void {
